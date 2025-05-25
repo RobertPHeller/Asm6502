@@ -1,0 +1,829 @@
+**********************************************************
+*
+* 6502 assembler in SNOBOL4
+*
+* Robert Heller <heller@deepsoft.com>
+*
+* Tue May 13 08:22:51 2025
+*
+*************************************************************
+*
+*    &DUMP = 1
+*   PRINT_TABLE(N,T) - Debug helper function to print table objects
+*   Params:
+*       N name of the table
+*       T the table itself
+*   Returns nothing
+*
+    DEFINE('PRINT_TABLE(N,T)TA') :(PRINT_TABLE_END)
+PRINT_TABLE 
+    TA = CONVERT(T,'ARRAY')       :F(FRETURN)
+    OUTPUT = 'Table ' N ':'
+    I = 1
+PRINT_TABLE_L OUTPUT = TA<I,1> ' = ' TA<I,2> :F(RETURN)
+    I = I + 1                   :(PRINT_TABLE_L)
+PRINT_TABLE_END
+* BASE10 - BASE10(N,B) will convert the string N assumed
+*	   to be a numeral expressed in base B arithmetic
+*	   to decimal (base 10).
+*
+*	   Digits beyond 0-9 are from the set A-Z.
+*
+	DEFINE('BASE10(N,B)T')
+	BASEB_ALPHA  =  '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+						:(BASE10_END)
+BASE10	N   LEN(1) . T  =			:F(RETURN)
+	BASEB_ALPHA    BREAK(*T)  @T		:F(ERROR)
+	BASE10  =  (BASE10 * B) + T		:(BASE10)
+BASE10_END
+*  BASEB(N,B) will convert the integer N to its base B representation.
+*
+*  B may be any positive integer <=36.
+*
+	DEFINE('BASEB(N,B)R,C')
+	BASEB_ALPHA  =  '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+						:(BASEB_END)
+BASEB	EQ(N,0)					:S(RETURN)
+	R  =  REMDR(N,B)
+	BASEB_ALPHA  TAB(*R)   LEN(1) . C	:F(ERROR)
+	BASEB  =  C BASEB
+	N  =  N / B				:(BASEB)
+BASEB_END
+*
+* ALU instructions (C=1)
+*
+    STA_ISADRMODE = 'XI,Z,A,IY,ZX,AY,AX,'
+    STA_P2ADRMODE = "XI:0,Z:1,A:3,IY:4,ZX:5,AY:6,AX:7,"
+    ALU_ISADRMODE = 'XI,Z,A,IM,IY,ZX,AY,AX,'
+    ALU_P2ADRMODE = "XI:0,Z:1,IM:2,A:3,IY:4,ZX:5,AY:6,AX:7,"
+    ALUOPPAT = 'ORA' | 'AND' | 'EOR' | 'ADC' | 'STA' | 'LDA' | 'CMP' | 'SBC'
+    ALU = 'ORA 0,AND 1,EOR 2,ADC 3,STA 4,LDA 5,CMP 6,SBC 7,'
+    ALUOPS = TABLE()
+ALU_INIT ALU BREAK(' ') . ALUOP ' ' BREAK(',') . CODE ',' = :F(BRANCH1)
+    ALUOPS<ALUOP> = CODE            :(ALU_INIT)
+*
+* Relative branch instructions
+*
+BRANCH1
+*    OUTPUT = '@BRANCH1' 
+*    PRINT_TABLE('ALUOPS',ALUOPS)    
+    BRANCH = 'BPL 10,BMI 30,BVC 50,BVS 70,BCC 90,BCS B0,BNE D0,BEQ F0,'
+    BRANCHOPPAT = 'BPL' | 'BMI' | 'BVC' | 'BVS' | 'BCC' | 'BCS' | 'BNE' | 'BEQ'
+    BRANCHOPS = TABLE()
+BRANCH_INIT BRANCH BREAK(' ') . BROP ' ' BREAK(',') . CODE ',' = :F(JSR1)
+    BRANCHOPS<BROP> = BASE10(CODE,16)           :(BRANCH_INIT)
+*
+* JMP and JSR instructions
+*
+JSR1 
+*    OUTPUT = '@JSR1'
+*    PRINT_TABLE('BRANCHOPS',BRANCHOPS)
+    JUMPOPS = TABLE()
+    JUMPOPPAT = 'JSR' | 'JMP'
+    JUMPOPS<'JSR ABS'> = BASE10('20',16)
+    JUMPOPS<'JMP ABS'> = BASE10('4C',16)
+    JUMPOPS<'JMP IND'> = BASE10('6C',16)
+*    PRINT_TABLE('JUMPOPS',JUMPOPS)
+*
+*   Shift (and INC and DEC) instructions
+*
+    SHIFTOPPAT = 'ASL' | 'ROL' | 'LSR' | 'ROR' | 'DEC' | 'INC'
+    SHIFT_ISADRMODE = 'ACC,Z,A,ZX,AX,'
+    SHIFT_P2ADRMODE = 'ACC:2,Z:1,A:3,ZX:5,AX:7,'    
+    SHIFT = 'ASL 0,ROL 1,LSR 2,ROR 3,DEC 6,INC 7,'
+    SHIFTOPS = TABLE()
+SHIFT_INIT SHIFT BREAK(' ') . SHIFTOP ' '  BREAK(',') . CODE ',' = :F(YREG1)
+    SHIFTOPS<SHIFTOP ' ' ADDRMODE> = BASE10(CODE,16)    :(SHIFT_INIT)
+YREG1
+*
+* X and Y register instructions
+*
+    YREGOPPAT = 'STY' | 'LDY' | 'CPY' 
+    XREGOPPAT = 'STX' | 'LDX' | 'CPX'
+IMPL1
+*
+* Single byte (implied addressing) instructions
+*
+    IMPL = 'BRK 00,RTI 40,RTS 60,PHP 08,PLP 28,PHA 48,PLA 68,DEY 88,TAY A8,'
+    IMPL = IMPL 'INY C8,INX E8,CLC 18,SEC 38,CLI 58,SEI 78,TYA 98,CLV B8,'
+    IMPL = IMPL 'CLD D8,SED F8,TXA 8A,TAX AA,DEX CA,NOP EA,TXS 9A,TSX BA,'
+    IMPLOPS = TABLE()
+IMPL_INIT IMPL  BREAK(' ') . IMPLOP ' ' BREAK(',') . CODE ',' = 
++                                               :F(INSTRUCTIONS1)
+    IMPLOPPAT = DIFFER(IMPLOPPAT) IMPLOPPAT | IMPLOP :S(IMPL_INIT1)
+    IMPLOPPAT = IMPLOP
+IMPL_INIT1
+    IMPLOPS<IMPLOP> = BASE10(CODE,16)    :(IMPL_INIT)
+INSTRUCTIONS1
+*    OUTPUT = '@INSTRUCTIONS1'
+*    PRINT_TABLE('IMPLOPS',IMPLOPS)
+*
+* All Instructions
+*
+    INSTRUCTIONS = 'ADC' | 'AND' | 'ASL' | 'BCC' | 'BCS' | 'BEQ' | 'BIT' |
++                  'BMI' | 'BNE' | 'BPL' | 'BRK' | 'BVC' | 'BVS' | 'CLC' | 
++                  'CLD' | 'CLI' | 'CLV' | 'CMP' | 'CPX' | 'CPY' | 'DEC' | 
++                  'DEX' | 'DEY' | 'EOR' | 'INC' | 'INX' | 'INY' | 'JMP' | 
++                  'JSR' | 'LDA' | 'LDX' | 'LDY' | 'LSR' | 'NOP' | 'ORA' | 
++                  'PHA' | 'PHP' | 'PLA' | 'PLP' | 'ROL' | 'ROR' | 'RTI' | 
++                  'RTS' | 'SBC' | 'SEC' | 'SED' | 'SEI' | 'STA' | 'STX' | 
++                  'STY' | 'TAX' | 'TAY' | 'TSX' | 'TXA' | 'TXS' | 'TYA'
+*
+* Assembly Directives
+*
+    DIRECTIVES   = 'DEF' | 'ORG' | 'BYTE' | 'WORD' | 'DATA' | 'END'
+*
+* Patterns for the operand (address) field
+*
+*   Hex constants
+    HEXCONST = ('$' | '0X') SPAN('0123456789ABCDEF') 
+* Single character constants
+    CHARCONST = "'" LEN(1) "'"
+* Decimal constants
+    DECCONST = SPAN('0123456789')
+* Any constant
+    CONST = HEXCONST | CHARCONST | DECCONST
+* Symbols
+    SYMBOL = ANY('ABCDEFGHIJKLMNOPQRSTUVWXYZ') (SPAN('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ') | '')
+* Whitespace
+    BL = SPAN(' ' CHAR(9))
+* Immediate addressing
+    IMMED.C = '#' CONST . C BL
+* General address
+    ADDRESS = HEXCONST | DECCONST | SYMBOL | '*'
+* Address, assigned to A, Zero page or Absolute (no indexing)
+    ADDRESS.A = POS(0) ADDRESS . A BL
+* X Indexed address, assigned to A, Zero page or Absolute
+    X_INDEXED.A = POS(0) ADDRESS . A ',X' BL
+* Y Indexed address, assigned to A, Zero page or Absolute 
+    Y_INDEXED.A = POS(0) ADDRESS . A ',Y' BL
+* X Indirect indexed address, assigned to A, Zero page or Absolute
+    X_INDIRECT.A = POS(0) '(' ADDRESS . A ',X)' BL
+* Y Indirect indexed address, assigned to A, Zero page or Absolute
+    Y_INDIRECT.A  = POS(0) '(' ADDRESS . A '),Y' BL
+* Indirect Absolute address, assigned to A
+    INDIRECT.A = POS(0) '(' ADDRESS . A ')' BL
+* Accumulator (Shifts and Inc/Dec only)
+    ACCUM = POS(0) ('A' | '') BL
+* All legal opcode names
+    OP.O = POS(0) (INSTRUCTIONS | DIRECTIVES) . O BL
+* Symbol table
+    SYMS = TABLE()
+*
+* DUMPSUMBOLS() -- Dump the symbol table
+*
+* Params: none
+* Returns: nothing
+*
+    DEFINE('DUMPSUMBOLS()A,I')       :(DUMPSUMBOLS_END)
+DUMPSUMBOLS
+    OUTPUT = "Symbols: "
+    A = CONVERT(SYMS,'ARRAY')           :F(RETURN)
+    I = 1
+DUMPSUMBOLS_1
+    OUTPUT = A<I,1> ' = ' LPAD(BASEB(A<I,2>,16),4,'0')        :F(RETURN)
+    I = I + 1                           :(DUMPSUMBOLS_1)
+DUMPSUMBOLS_END
+*   Match a Label, asssign to L
+    LABEL.L = POS(0) (SYMBOL | '') . L BL
+*   Match a comment
+    COMMENT = ';' ARB RPOS(0)
+*   Location counter
+    LOC = 0
+*   Scratch file
+    OUTPUT(.DISK,10,,'temp')
+*
+* Pass1 instruction size check functions:
+*
+*   ZPG_CHECK(A) -- Checks to see if A is a valid Zero Page location
+*   Params:
+*   A - Address field
+*   Returns: Success is A is < 256, Failure if not
+*
+    DEFINE('ZPG_CHECK(A)H,D')
+*
+*   IS_ADDRMODE(REMAINDER,ADDMODES) -- Returns instruction size in bytes
+*   Params:
+*   REMAINDER - operand field, with trailing blank
+*   ADDMODES  - comma separated list of valid addressing modes
+*   Returns:  - Instruction size in bytes, Failure if invalid address field
+*
+    DEFINE('IS_ADDRMODE(REMAINDER,ADDMODES)MODE,A,C,D,H')
+*
+*   INSTRUCTION_SIZE(OP,REMAINDER) -- Returns Instruction size in bytes, Failure if invalid address field
+*   Params:
+*   OP - Opcode 
+*   REMAINDER operand field, with trailing blank
+*   Returns:  - Instruction size in bytes, Failure if invalid address field
+*
+    DEFINE('INSTRUCTION_SIZE(OP,REMAINDER)A,C,D')       :(INSTRUCTION_SIZE_END)
+ZPG_CHECK
+    A DECCONST . D                              :S(ZPG_CHECK_DEC)
+    A HEXCONST . H                              :S(ZPG_CHECK_HEX)
+    D = DIFFER(SYMS<A>) SYMS<A>                 :F(FRETURN)
+ZPG_CHECK_DEC
+    LT(D,256)                                   :S(RETURN)F(FRETURN)
+ZPG_CHECK_HEX
+    H ('$' | '0X') =
+    D = BASE10(H,16)                            :(ZPG_CHECK_DEC)
+IS_ADDRMODE
+*    OUTPUT = '[IS_ADDRMODE] ADDMODES = "' ADDMODES '" REMAINDER = "' 
+*+                       REMAINDER '"'
+    ADDMODES BREAK(',') . MODE ',' =      :F(FRETURN)S($('IS_ADDRMODE_' MODE))
+IS_ADDRMODE_IM
+*    OUTPUT = '[IS_ADDRMODE_IM] REMAINDER is "' REMAINDER '"'
+    REMAINDER IMMED.C           :F(IS_ADDRMODE)
+    IS_ADDRMODE = 2             :(RETURN)
+IS_ADDRMODE_Z
+    REMAINDER ADDRESS.A                 :F(IS_ADDRMODE)
+    IS_ADDRMODE = ZPG_CHECK(A) 2        :S(RETURN)F(IS_ADDRMODE)
+IS_ADDRMODE_ACC
+    REMAINDER  ACCUM                    :F(IS_ADDRMODE)
+    IS_ADDRMODE = 1                     :(RETURN)
+IS_ADDRMODE_A 
+    REMAINDER ADDRESS.A                 :F(IS_ADDRMODE)
+    IS_ADDRMODE = 3                     :(RETURN)
+IS_ADDRMODE_ZX
+    REMAINDER X_INDEXED.A               :F(IS_ADDRMODE)
+    IS_ADDRMODE = ZPG_CHECK(A) 2        :S(RETURN)F(IS_ADDRMODE)
+IS_ADDRMODE_AX
+    REMAINDER X_INDEXED.A               :F(IS_ADDRMODE)
+    IS_ADDRMODE = 3                     :(RETURN)
+IS_ADDRMODE_ZY
+    REMAINDER Y_INDEXED.A               :F(IS_ADDRMODE)
+    IS_ADDRMODE = ZPG_CHECK(A) 2        :S(RETURN)F(IS_ADDRMODE)
+IS_ADDRMODE_AY
+    REMAINDER Y_INDEXED.A               :F(IS_ADDRMODE)S(RETURN)
+IS_ADDRMODE_XI
+    REMAINDER X_INDIRECT.A              :F(IS_ADDRMODE)
+    IS_ADDRMODE = ZPG_CHECK(A) 2        :S(RETURN)F(IS_ADDRMODE)
+IS_ADDRMODE_IY
+    REMAINDER Y_INDIRECT.A              :F(IS_ADDRMODE)
+    IS_ADDRMODE = ZPG_CHECK(A) 2        :S(RETURN)F(IS_ADDRMODE)
+INSTRUCTION_SIZE
+*    OUTPUT = '[INSTRUCTION_SIZE] OP = "' OP '" - "' REMAINDER '"'
+    OP ALUOPPAT                 :S(IS_ALU)
+*    OUTPUT = '[INSTRUCTION_SIZE] "' OP '" ALUOPPAT failed'
+    OP BRANCHOPPAT              :S(IS_BRANCH)
+*    OUTPUT = '[INSTRUCTION_SIZE] "' OP '" BRANCHOPPAT failed'
+    OP JUMPOPPAT                :S(IS_JUMP)
+*    OUTPUT = '[INSTRUCTION_SIZE] "' OP '" JUMPOPPAT failed'
+    OP SHIFTOPPAT               :S(IS_SHIFT)
+*    OUTPUT = '[INSTRUCTION_SIZE] "' OP '" SHIFTOPPAT failed' 
+    OP YREGOPPAT | XREGOPPAT    :S(IS_XY)
+*    OUTPUT = '[INSTRUCTION_SIZE] "' OP '" YREGOPPAT | XREGOPPAT failed'
+    IDENT(OP,'BIT')             :S(IS_BIT)
+*    OUTPUT = '[INSTRUCTION_SIZE] IDENT("' OP '","BIT") failed'
+    OP IMPLOPPAT                :S(IS_IMPL)
+*    OUTPUT = '[INSTRUCTION_SIZE] "' OP '" IMPLOPPAT failed' :(FRETURN)
+IS_ALU
+    
+    INSTRUCTION_SIZE = IDENT(OP,'STA') IS_ADDRMODE(REMAINDER,STA_ISADRMODE) :S(RETURN)
+    INSTRUCTION_SIZE = IS_ADDRMODE(REMAINDER,ALU_ISADRMODE) :S(RETURN)F(FRETURN)
+IS_BRANCH
+    INSTRUCTION_SIZE = 2                     :(RETURN)
+IS_JUMP
+    INSTRUCTION_SIZE = 3                     :(RETURN)
+IS_SHIFT
+    INSTRUCTION_SIZE = IS_ADDRMODE(REMAINDER,SHIFT_ISADRMODE) :S(RETURN)F(FRETURN)
+IS_XY
+    INSTRUCTION_SIZE = IDENT(OP,'STX') IS_ADDRMODE(REMAINDER,'Z,A,ZY,') 
++                                                   :S(RETURN)
+    INSTRUCTION_SIZE = IDENT(OP,'STY') IS_ADDRMODE(REMAINDER,'Z,A,ZX,')
++                                                   :S(RETURN)
+    INSTRUCTION_SIZE = IDENT(OP,'LDX') IS_ADDRMODE(REMAINDER,'IM,Z,A,ZY,AY,')
++                                                   :S(RETURN)
+    INSTRUCTION_SIZE = IDENT(OP,'LDY') IS_ADDRMODE(REMAINDER,'IM,Z,A,ZX,AX,')
++                                                   :S(RETURN)
+    INSTRUCTION_SIZE = IDENT(OP,'CPX') IS_ADDRMODE(REMAINDER,'IM,Z,A,')
++                                                   :S(RETURN)
+    INSTRUCTION_SIZE = IDENT(OP,'CPY') IS_ADDRMODE(REMAINDER,'IM,Z,A,')
++                                                   :S(RETURN)F(FRETURN)
+IS_BIT
+    INSTRUCTION_SIZE = IS_ADDRMODE(REMAINDER,'Z,A,') :S(RETURN)F(FRETURN)
+IS_IMPL
+    INSTRUCTION_SIZE = 1                      :(RETURN)
+INSTRUCTION_SIZE_END
+*
+*   PASS1_PROCESS(LABEL,OP,REMAINDER) -- Process one instruction during pass 1
+*   Params:
+*   LABEL -- label or empty
+*   OP -- Opcode
+*   REMAINDER -- rest of line with trailing blank
+*   Returns: Success if legal opcode or directive with legal address mode
+*            Failure if illegal opcode or illegal address mode
+*   Side effects: updates LOC and Symbol Table
+*
+    DEFINE('PASS1_PROCESS(LABEL,OP,REMAINDER)SIZE,H,D,C')   :(PASS1_PROCESS_END)
+PASS1_PROCESS
+*    OUTPUT = '[PASS1_PROCESS]: "' LABEL '" -  "' OP '" -  "' REMAINDER '"'
+    OP DIRECTIVES               :S($('P1_DIR_' OP))
+*    OUTPUT = '[PASS1_PROCESS]: OP DIRECTIVES failed'
+    SIZE = INSTRUCTION_SIZE(OP,REMAINDER ' ') :S(P1_LABEL)F(FRETURN)
+P1_DIR_END
+    END = 1                     :(RETURN)
+P1_DIR_DEF
+    SIZE = 0
+    REMAINDER HEXCONST . H BL    :F(P1_DIR_DEF1)
+    H POS(0) ('$' | '0X') =
+    SYMS<DIFFER(LABEL) LABEL> = BASE10(H,16)   :F(FRETURN)S(RETURN)
+P1_DIR_DEF1
+    REMAINDER DECCONST . D BL   :F(P1_DIR_DEF2)
+    SYMS<DIFFER(LABEL) LABEL> = D             :F(FRETURN)S(RETURN)
+P1_DIR_DEF2
+    REMAINDER "'" LEN(1) . C "'" BL :F(FRETURN)
+    SYMS<DIFFER(LABEL) LABEL> = ORD(C)            :F(FRETURN)S(RETURN)
+P1_DIR_ORG
+    SIZE = 0
+    REMAINDER HEXCONST . H BL     :F(P1_DIR_ORG_1)
+    H POS(0) ('$' | '0X') =
+    LOC = BASE10(H,16)          :(P1_LABEL)
+P1_DIR_ORG_1
+    REMAINDER DECCONST . LOC BL   :S(P1_LABEL)F(FRETURN)
+P1_DIR_BYTE
+    SIZE = 1                    :(P1_LABEL)                    
+P1_DIR_WORD
+    SIZE = 2                    :(P1_LABEL)
+P1_DIR_DATA
+    REMAINDER DECCONST . SIZE BL   :S(P1_LABEL)F(FRETURN)
+PI_DIR_END
+                                 :(RETURN)
+P1_LABEL
+*    OUTPUT = '[PASS1_PROCESS] "' LABEL '" - ' LOC
+    SYMS<DIFFER(LABEL) LABEL> = LOC
+*    OUTPUT = '[PASS1_PROCESS] SYMS<"' LABEL '"> = ' SYMS<LABEL>
+    LOC = LOC + SIZE               :(RETURN)
+PASS1_PROCESS_END
+*
+*   Pass 2 helper functions
+*
+*   MEMORYSTORE(L,V) -- Store a byte in 'memory'
+*   Params: 
+*   L -- location
+*   V -- Byte to store
+*   Returns: nothing
+*   Side effects: 
+*   Memory table updated
+*   LOWMEM and HIGHMEM updated to define bounds
+*
+    DEFINE('MEMORYSTORE(L,V)')
+*
+*   DUMPMEMORY() -- Hex dump compiled code
+*   Params: none
+*   Returns: nothing
+*   Side effects:
+*   Memory dumped to OUTPUT in HEX
+*
+    DEFINE('DUMPMEMORY()L,CLEN,CODE')
+* Memeory buffer
+    MEMORY = TABLE()
+* Low memory location
+    LOWMEM =
+* High memory location
+    HIGHMEM =                   :(MEMORYSTORE_END)
+MEMORYSTORE
+    MEMORY<L> = REMDR(V,256)
+    LOWMEM = IDENT(LOWMEM) L
+    LOWMEM = LT(L,LOWMEM) L
+    HIGHMEM = IDENT(HIGHMEM) L
+    HIGHMEM = GT(L,HIGHMEM) L   :(RETURN)
+DUMPMEMORY
+    OUTPUT = "Memory: "
+    L = LOWMEM
+DUMPMEMORY_1
+    CODE = LPAD(BASEB(L,16),4,'0')
+    CLEN = 4
+DUMPMEMORY_2
+    GT(L,HIGHMEM)               :S(DUMPMEMORY_FLUSH)
+    CODE = LT(CLEN + 3,32) CODE ' ' LPAD(BASEB(MEMORY<L>, 16),2,'0')
++                               :F(DUMPMEMORY_F1)
+    L = L + 1
+    CLEN = CLEN + 1 + 2         :(DUMPMEMORY_2)
+DUMPMEMORY_F1
+    OUTPUT = CODE               :(DUMPMEMORY_1)
+DUMPMEMORY_FLUSH
+    OUTPUT = CODE               :(RETURN)
+MEMORYSTORE_END
+*
+* More Pass 2 helper functions
+*
+*   PASS2_ZPG(A) - Zero page address checker
+*   Params:
+*   A Address field to check
+*   Returns:  Zero page address or 
+*             Failure if address is out of range or illformed
+*
+    DEFINE('PASS2_ZPG(A)H,D,S')
+*
+*   PASS2_ABS(A) - Absolute address checker
+*   Params:
+*   A Address field to check
+*   Returns:  Absolute address or 
+*             Failure if address is not defined or illformed
+*
+    DEFINE('PASS2_ABS(A)H,D,S')
+*
+*   PASS2_ADDRMODE(OP_A,OP_C,OP_B,REMAINDER,CLEN) -- 
+*   Process opcode address mode
+*   Params:
+*   OP_A -- A field code
+*   OP_C -- C field code
+*   OP_B -- B field codes (address modes)
+*   REMAINDER -- operand field with trailing blank
+*   CLEN -- Starting code length
+*   Returns: Hex Code fragment for listing with '//' for newlines or
+*            Failure for bad address
+*   Side effects: memory updated with opcode and operand bytes
+*                 on failure, CAUSE is set to error code
+*
+    DEFINE('PASS2_ADDRMODE(OP_A,OP_C,OP_B,REMAINDER,CLEN)MODE,B,H,D1,D2,C,A,OPCODE') 
+                                                :(PASS2_ADDRMODE_END)
+PASS2_ZPG
+*    OUTPUT = '[PASS2_ZPG] A = "' A '"'
+    A POS(0) DECCONST . D RPOS(0)                             :S(PASS2_ZPG_DEC)
+    A POS(0) HEXCONST . H RPOS(0)                             :S(PASS2_ZPG_HEX)
+    D = IDENT(A,'*') LOC                                      :S(PASS2_ZPG_DEC)
+    A POS(0) SYMBOL . S RPOS(0)                               :F(FRETURN)
+    D = DIFFER(SYMS<S>) SYMS<S>                 :F(FRETURN)
+PASS2_ZPG_DEC
+    PASS2_ZPG = LT(D,256) D                     :S(RETURN)F(FRETURN)
+PASS2_ZPG_HEX
+    H ('$' | '0X') =
+*    OUTPUT = '[PASS2_ZPG] H (sans prefix) = "' H '"'
+    D = BASE10(H,16)                              :(PASS2_ZPG_DEC)
+PASS2_ABS
+*    OUTPUT = '[PASS2_ABS] A = "' A '"'
+    A POS(0) DECCONST . PASS2_ABS RPOS(0)                      :S(RETURN)
+    A POS(0) HEXCONST . H RPOS(0)                             :S(PASS2_ABS_HEX)
+    PASS2_ABS = IDENT(A,'*') LOC                                :S(RETURN)
+    A POS(0) SYMBOL . S RPOS(0)                               :F(PASS2_ABS_UA)
+    PASS2_ABS = DIFFER(SYMS<S>) SYMS<S>         :F(PASS2_ABS_UA)S(RETURN)
+PASS2_ABS_HEX
+    H ('$' | '0X') =
+*    OUTPUT = '[PASS2_ABS] H (sans prefix) = "' H '"'
+    PASS2_ABS = BASE10(H,16)                    :(RETURN)
+PASS2_ABS_UA
+    PASS2_ABS = 0
+    CAUSE = 'UA'                                :(RETURN)    
+PASS2_ADDRMODE
+    OPCODE = OP_A * 32 + OP_C
+PASS2_ADDRMODE_1
+*    OUTPUT = '[PASS2_ADDRMODE_1] OP_B = "' OP_B '", REMAINDER = "' REMAINDER '"'
+    OP_B BREAK(':') . MODE ':' BREAK(',') . B ',' = 
++                       :F(PASS2_ADDRMODE_ERR)S($('PASS2_ADDRMODE_' MODE))
+PASS2_ADDRMODE_IM
+    REMAINDER IMMED.C           :F(PASS2_ADDRMODE_1)
+    OPCODE = OPCODE + (B * 4)
+    MEMORYSTORE(LOC,OPCODE)
+    PASS2_ADDRMODE = LPAD(BASEB(MEMORY<LOC>,16),2,'0')
+    CLEN = CLEN + 2
+    LOC = LOC + 1
+    C "'" LEN(1) . D2 "'"       :F(PASS2_ADDRMODE_IM1)
+    MEMORYSTORE(LOC,ORD(D2))
+    PASS2_ADDRMODE = PASS2_ADDRMODE ' ' LPAD(BASEB(MEMORY<LOC>,16),2,'0')
+    CLEN = CLEN + 1 + 2
+    LOC = LOC + 1
+    PASS2_ADDRMODE = PASS2_ADDRMODE RPAD(' ',32 - CLEN) '//'         :(RETURN)
+PASS2_ADDRMODE_IM1
+    C  ('$' | '0X') =          :F(PASS2_ADDRMODE_IM2)
+    MEMORYSTORE(LOC,REMDR(BASE10(C,16),256))
+PASS2_ADDRMODE_IM1A
+    PASS2_ADDRMODE = PASS2_ADDRMODE ' ' LPAD(BASEB(MEMORY<LOC>,16),2,'0') 
+    CLEN = CLEN + 1 + 2
+    LOC = LOC + 1
+    PASS2_ADDRMODE = PASS2_ADDRMODE RPAD(' ',32 - CLEN) '//'         :(RETURN)
+PASS2_ADDRMODE_IM2
+    MEMORYSTORE(LOC,REMDR(C,256))                       :(PASS2_ADDRMODE_IM1A)
+PASS2_ADDRMODE_Z
+    REMAINDER ADDRESS.A                 :F(PASS2_ADDRMODE_1)
+    D = PASS2_ZPG(A)                    :F(PASS2_ADDRMODE_1)
+* ZPG
+PASS2_ADDRMODE_Z_EMIT
+    OPCODE = OPCODE + (B * 4)
+    MEMORYSTORE(LOC,OPCODE)
+    PASS2_ADDRMODE = LPAD(BASEB(MEMORY<LOC>,16),2,'0')
+    CLEN = CLEN + 2
+    LOC = LOC + 1
+    MEMORYSTORE(LOC,D)
+    PASS2_ADDRMODE = PASS2_ADDRMODE ' ' LPAD(BASEB(MEMORY<LOC>,16),2,'0')
+    CLEN = CLEN + 1 + 2 
+    LOC = LOC + 1
+    PASS2_ADDRMODE = PASS2_ADDRMODE RPAD(' ',32 - CLEN) '//'         :(RETURN)
+PASS2_ADDRMODE_Z_HEX H ('$' | '0X') =
+    D = BASE10(H,16)                    :(PASS2_ADDRMODE_Z_DEC)
+PASS2_ADDRMODE_A
+    REMAINDER ADDRESS.A                 :F(PASS2_ADDRMODE_1)
+    D = PASS2_ABS(A)                    :F(PASS2_ADDRMODE_1)
+* ABS
+PASS2_ADDRMODE_A_EMIT
+    OPCODE = OPCODE + (B * 4)
+PASS2_ADDRMODE_A_EMIT1
+    MEMORYSTORE(LOC,OPCODE)
+    PASS2_ADDRMODE = LPAD(BASEB(MEMORY<LOC>,16),2,'0')
+    CLEN = CLEN + 2 
+    LOC = LOC + 1
+    MEMORYSTORE(LOC,REMDR(D,256))
+    PASS2_ADDRMODE = PASS2_ADDRMODE ' ' LPAD(BASEB(MEMORY<LOC>,16),2,'0')
+    CLEN = CLEN + 1 + 2
+    LOC = LOC + 1
+    MEMORYSTORE(LOC,D / 256)
+    PASS2_ADDRMODE = PASS2_ADDRMODE ' ' LPAD(BASEB(MEMORY<LOC>,16),2,'0')
+    CLEN = CLEN + 1 + 2
+    LOC = LOC + 1
+    PASS2_ADDRMODE = PASS2_ADDRMODE RPAD(' ',32 - CLEN) '//'         :(RETURN)
+PASS2_ADDRMODE_ZX
+    REMAINDER X_INDEXED.A               :F(PASS2_ADDRMODE_1)
+    D = PASS2_ZPG(A)                    :F(PASS2_ADDRMODE_1)
+* ZPG,X
+                                        :(PASS2_ADDRMODE_Z_EMIT)
+PASS2_ADDRMODE_AX
+    REMAINDER X_INDEXED.A               :F(PASS2_ADDRMODE_1)
+    D = PASS2_ABS(A)                    :(PASS2_ADDRMODE_A_EMIT)
+PASS2_ADDRMODE_ZY
+    REMAINDER Y_INDEXED.A               :F(PASS2_ADDRMODE_1)
+    D = PASS2_ZPG(A)                    :F(PASS2_ADDRMODE_1)
+* ZPG,Y
+                                        :(PASS2_ADDRMODE_Z_EMIT)
+PASS2_ADDRMODE_AY
+    REMAINDER Y_INDEXED.A               :F(PASS2_ADDRMODE_1)
+    D = PASS2_ABS(A)                    :(PASS2_ADDRMODE_A_EMIT)
+PASS2_ADDRMODE_XI
+    REMAINDER X_INDIRECT.A              :F(PASS2_ADDRMODE_1)
+    D = PASS2_ZPG(A)              :F(PASS2_ADDRMODE_1)S(PASS2_ADDRMODE_Z_EMIT)
+PASS2_ADDRMODE_IY
+    REMAINDER Y_INDIRECT.A              :F(PASS2_ADDRMODE_1)
+    D = PASS2_ZPG(A)              :F(PASS2_ADDRMODE_1)S(PASS2_ADDRMODE_Z_EMIT)
+PASS2_ADDRMODE_ACC
+    REMAINDER 'A' BL                    :F(PASS2_ADDRMODE_1)
+    OPCODE = OPCODE + (B * 4)
+    MEMORYSTORE(LOC,OPCODE)
+    PASS2_ADDRMODE = LPAD(BASEB(MEMORY<LOC>,16),2,'0')
+    CLEN = CLEN + 2
+    LOC = LOC + 1
+    PASS2_ADDRMODE = PASS2_ADDRMODE RPAD(' ',32 - CLEN) '//'         :(RETURN)
+PASS2_ADDRMODE_ERR
+    CAUSE = 'IA'                    :(FRETURN)
+PASS2_ADDRMODE_END
+*
+*   PASS2_PROCESS(OP,REMAINDER) -- main Pass 2 processing function
+*   Params:
+*   OP opcode
+*   REMAINDER operand field
+*   Returns: Hex code text, with '//' for newlines OR
+*            Failure if bad opcode, etc.
+*   Side effects: Memory buffer updated and CAUSE variable set for error code
+*
+    DEFINE('PASS2_PROCESS(OP,REMAINDER)SIZE,H,D1,D2,C,A,OPCODE,CLEN') 
+                                                :(PASS2_PROCESS_END)
+PASS2_PROCESS
+*    OUTPUT = '[PASS2_PROCESS] "' OP '" "' REMAINDER '"'
+    OP DIRECTIVES               :S($('P2_DIR_' OP))F(P2_EMIT)
+P2_DIR_DEF CAUSE = '  '                     :(RETURN)
+P2_DIR_ORG
+    CAUSE = '  '
+    REMAINDER HEXCONST . H      :F(P2_DIR_ORG_1)
+    H POS(0) ('$' | '0X') = 
+    LOC = BASE10(H,16)
+    PASS2_PROCESS = LPAD(BASEB(LOC,16),4,'0') RPAD(' ',32 - 4) '//' :(RETURN)
+P2_DIR_ORG_1
+    REMAINDER DECCONST . LOC    :F(FRETURN)
+    PASS2_PROCESS = LPAD(BASEB(LOC,16),4,'0') RPAD(' ',32 - 4) '//' :(RETURN)
+P2_DIR_BYTE
+    CAUSE = '  '
+    REMAINDER CONST . D1        :F(FRETURN)
+    D1 "'" LEN(1) . D2 "'"     :F(P2_DIR_BYTE1)
+    MEMORYSTORE(LOC,ORD(D2))
+P2_DIR_BYTE0
+    PASS2_PROCESS = LPAD(BASEB(LOC,16),4,'0') ' '  LPAD(BASEB(MEMORY<LOC>,16),2,'0') RPAD(' ',32 - (4 + 1 + 2)) '//'
+    LOC = LOC + 1               :(RETURN)
+P2_DIR_BYTE1
+    D1  ('$' | '0X') =          :F(P2_DIR_BYTE2)
+    MEMORYSTORE(LOC,REMDR(BASE10(D1,16),256)) :(P2_DIR_BYTE0)
+P2_DIR_BYTE2
+    MEMORYSTORE(LOC,REMDR(D1,256))  :(P2_DIR_BYTE0)
+P2_DIR_WORD
+    CAUSE = '  '
+    REMAINDER ADDRESS . D1       :F(FRETURN)
+    D1 = SYMS<D1>                :S(P2_DIR_WORD1)
+    D1 ('$' | '0X') =            :F(P2_DIR_WORD1)
+    D1 = BASE10(D1,16)
+P2_DIR_WORD1
+    MEMORYSTORE(LOC,REMDR(D1,256))
+    PASS2_PROCESS = LPAD(BASEB(LOC,16),4,'0') ' '  LPAD(BASEB(MEMORY<LOC>,16),2,'0') 
+    LOC = LOC + 1
+    MEMORYSTORE(LOC,D1 / 256)
+    PASS2_PROCESS = PASS2_PROCESS ' '  LPAD(BASEB(MEMORY<LOC>,16),2,'0') 
++                       RPAD(' ',(32 - (4 + 1 + 2 + 1 + 2))) '//'
+    LOC = LOC + 1               :(RETURN)
+P2_DIR_DATA
+    CAUSE = '  '
+    REMAINDER DECCONST . D1
+    PASS2_PROCESS = LPAD(BASEB(LOC,16),4,'0') 
+    CLEN = 4
+P2_DIR_DATA1
+    LT(D1,1)                    :S(RETURN)
+    MEMORYSTORE(LOC,0)
+    PASS2_PROCESS = LT(CLEN + 3,32) PASS2_PROCESS ' ' LPAD(BASEB(MEMORY<LOC>,16),2,'0') 
++                                               :F(P2_DIR_DATA1_OVER)
+    LOC = LOC + 1
+    CLEN = CLEN + 1 + 2                         :(P2_DIR_DATA1_UNDER)
+P2_DIR_DATA1_OVER
+    PASS2_PROCESS = PASS2_PROCESS RPAD(' ',32 - CLEN) '//'
+    PASS2_PROCESS = PASS2_PROCESS LPAD(BASEB(LOC,16),4,'0')
+    CLEN = 4
+P2_DIR_DATA1_UNDER
+    LOC = LOC + 1
+    D1 = D1 - 1                 :(P2_DIR_DATA1)
+P2_DIR_END
+    CAUSE = '  '
+    PASS2_PROCESS = LPAD(BASEB(LOC,16),4,'0')
+    CLEN = 4
+    PASS2_PROCESS = PASS2_PROCESS RPAD(' ',32 - CLEN) '//'        :(RETURN)
+P2_EMIT
+*    OUTPUT = '[PASS2_PROCESS] OP DIRECTIVES failed'
+    CAUSE = '  '
+    PASS2_PROCESS = LPAD(BASEB(LOC,16),4,'0')
+    CLEN = 4
+    OP ALUOPPAT                 :S(P2_EMIT_ALU)
+    OP BRANCHOPPAT              :S(P2_EMIT_BRANCH)
+    OP JUMPOPPAT                :S(P2_EMIT_JUMP)
+    OP SHIFTOPPAT               :S(P2_EMIT_SHIFT)
+    IDENT(OP,'BIT')             :S(P2_EMIT_BIT)
+    OP YREGOPPAT | XREGOPPAT    :S(P2_EMIT_XY)
+    OP IMPLOPPAT                :S(P2_EMIT_IMPL)
+    CAUSE = "II"
+    PASS2_PROCESS =                     :(FRETURN)
+P2_EMIT_ALU
+    PASS2_PROCESS = IDENT(OP,"STA") 
++            PASS2_PROCESS ' ' PASS2_ADDRMODE(ALUOPS<OP>,1,STA_P2ADRMODE,
++                           REMAINDER,5) 
++                                                   :S(RETURN)
+    PASS2_PROCESS = PASS2_PROCESS ' ' PASS2_ADDRMODE(ALUOPS<OP>,1,
++                ALU_P2ADRMODE,REMAINDER,5)                                :F(FRETURN)S(RETURN)
+P2_EMIT_BRANCH
+    CAUSE = 'IA'
+    REMAINDER ADDRESS.A                                 :F(FRETURN)
+    CAUSE = '  '
+    D = PASS2_ABS(A) - (LOC + 2)
+*    OUTPUT = '[P2_EMIT_BRANCH] D = ' D
+    D = LT(D,0) 256 + D
+*    OUTPUT = '[P2_EMIT_BRANCH](2) D = ' D
+    MEMORYSTORE(LOC,BRANCHOPS<OP>)
+    PASS2_PROCESS = PASS2_PROCESS ' ' LPAD(BASEB(MEMORY<LOC>,16),2,'0')
+    LOC = LOC + 1
+    CLEN = CLEN + 1 + 2
+    MEMORYSTORE(LOC,D)
+    PASS2_PROCESS = PASS2_PROCESS ' ' LPAD(BASEB(MEMORY<LOC>,16),2,'0')
+    LOC = LOC + 1
+    CLEN = CLEN + 1 + 2
+    PASS2_PROCESS = PASS2_PROCESS RPAD(' ',32 - CLEN) '//' :(RETURN)
+P2_EMIT_JUMP
+    IDENT(OP,'JSR')                                 :S(P2_EMIT_JMPABS)
+    REMAINDER INDIRECT.A                            :F(P2_EMIT_JMPABS)
+    OPCODE = JUMPOPS<'JMP IND'>                      :(P2_EMIT_JMPCOMMON)
+P2_EMIT_JMPABS
+    OPCODE = JUMPOPS<OP ' ABS'>
+    REMAINDER ADDRESS.A                             :S(P2_EMIT_JMPCOMMON)
+    A = 0
+    CAUSE = 'IA'
+P2_EMIT_JMPCOMMON
+    D = PASS2_ABS(A)
+    MEMORYSTORE(LOC,OPCODE)
+    PASS2_PROCESS = PASS2_PROCESS ' ' LPAD(BASEB(MEMORY<LOC>,16),2,'0')
+    LEN = CLEN + 2
+    LOC = LOC + 1
+    MEMORYSTORE(LOC,REMDR(D,256))
+    PASS2_PROCESS = PASS2_PROCESS ' ' LPAD(BASEB(MEMORY<LOC>,16),2,'0')
+    LEN = CLEN + 2 
+    LOC = LOC + 1 
+    MEMORYSTORE(LOC,D / 256)
+    PASS2_PROCESS = PASS2_PROCESS ' ' LPAD(BASEB(MEMORY<LOC>,16),2,'0')
+    LEN = CLEN + 2
+    LOC = LOC + 1
+    PASS2_PROCESS = PASS2_PROCESS RPAD(' ',32 - CLEN) '//'         :(RETURN)
+P2_EMIT_SHIFT
+    PASS2_PROCESS = PASS2_PROCESS ' ' 
++       PASS2_ADDRMODE(SHIFTOPS<OP>,2,SHIFT_P2ADRMODE,REMAINDER,5)
++                                                      :F(FRETURN)S(RETURN)
+P2_EMIT_BIT
+    PASS2_PROCESS = PASS2_PROCESS ' '
+        PASS2_ADDRMODE(1,0,'Z:1,A:3,',REMAINDER,5)      :F(FRETURN)S(RETURN)
+P2_EMIT_XY                                              :($('P2_EMIT_' OP))
+P2_EMIT_STX
+    PASS2_PROCESS = PASS2_PROCESS ' '
+        PASS2_ADDRMODE(4,2,'Z:1,A:3,ZY:5,',REMAINDER,5)   :F(FRETURN)S(RETURN)
+P2_EMIT_LDX
+    PASS2_PROCESS = PASS2_PROCESS ' '
+        PASS2_ADDRMODE(5,2,'IM:0,Z:1,A:3,ZY:5,AY:7,',REMAINDER,5)
++                                                          :F(FRETURN)S(RETURN)
+P2_EMIT_CPX
+    PASS2_PROCESS = PASS2_PROCESS ' '
+        PASS2_ADDRMODE(7,0,'IM:0,Z:1,A:3,',REMAINDER,5)   :F(FRETURN)S(RETURN)
+P2_EMIT_STY
+    PASS2_PROCESS = PASS2_PROCESS ' '
+        PASS2_ADDRMODE(4,0,'Z:1,A:3,ZX:5,',REMAINDER,5)   :F(FRETURN)S(RETURN)
+P2_EMIT_LDY
+    PASS2_PROCESS = PASS2_PROCESS ' '
+        PASS2_ADDRMODE(5,0,'IM:0,Z:1,A:3,ZX:5,AX:7,',REMAINDER,5)
++                                                          :F(FRETURN)S(RETURN)
+P2_EMIT_CPY
+    PASS2_PROCESS = PASS2_PROCESS ' '
+        PASS2_ADDRMODE(6,0,'IM:0,Z:1,A:3,,',REMAINDER,5)   :F(FRETURN)S(RETURN)
+P2_EMIT_IMPL
+    MEMORYSTORE(LOC,IMPLOPS<OP>)
+    PASS2_PROCESS = PASS2_PROCESS ' ' LPAD(BASEB(MEMORY<LOC>,16),2,'0')
+    LOC = LOC + 1 
+    CLEN = CLEN + 1 + 2
+    PASS2_PROCESS = PASS2_PROCESS RPAD(' ',32 - CLEN) '//' :(RETURN)
+PASS2_PROCESS_END
+*
+*   END flag -- set if END directive seen
+*
+    END = 0
+*
+*   Pass 1 loop:
+*
+PASS1
+*    OUTPUT = '[PASS1] LOC = ' LOC
+*   If end, set up for pass 2
+    EQ(END,1)               :S(INIT2)
+*   Read a line, exit loop on EOF
+    X = INPUT               :F(INIT2)
+*   Save for error messages
+    LINE = X
+*   Save for pass 2
+    DISK = X
+*   Strip off comment
+    X COMMENT =
+*   If empty statement, get another
+    X POS(0) (BL | '') RPOS(0) :S(PASS1)
+*   Make all uppercase
+    X = REPLACE(X,&LCASE,&UCASE)
+*    OUTPUT = '[PASS1] X = "' X '"'
+*   Get label, if any
+    L = ''
+    X LABEL.L =
+*    OUTPUT = '[PASS1] L = "' L '"'
+*   Peel off opcode
+    X OP.O =
+*   Process statement and loop
+    PASS1_PROCESS(L,O,X ' ')        :S(PASS1)
+PASS1_ILL
+*   Error messaging
+    OUTPUT = "Undefined instruction: " LINE :(PASS1)
+INIT2
+*   Initialize for pass 2
+*    OUTPUT = '[INIT2] LOC = ' LOC
+*    PRINT_TABLE('SYMS',SYMS)
+*    REWIND(10)
+*   Close scratch file
+    DETACH(.DISK)
+*   Open it for input
+    INPUT(.DISK,10,,'temp')
+*   reset location counter
+    LOC = 0
+*   Pass 2
+PASS2
+*   Assume Illegal instruction
+    CAUSE = 'II'
+*    OUTPUT = '[PASS2] LOC = ' LOC
+*   Fetch line, exit on EOF
+    LINE = DISK ' '                 :F(DONE)
+*   Copy line
+    X = LINE
+*   Strip off comment
+    X COMMENT =
+*   Skip blank statements
+    X POS(0) (BL | '') RPOS(0) :S(PRINTLINE)
+*   Make all uppercase
+    X = REPLACE(X,&LCASE,&UCASE)
+*   Peel off label if any
+    X LABEL.L =
+*   Peel off opcode
+    X OP.O =                                :F(ERRLINE)
+    X POS(0) BL = 
+*   Process statement, jump to error handler on failure
+    CAUSE = '  '
+    CODEBLOCK = PASS2_PROCESS(O,X ' ')        :F(ERRLINE)
+*   Output code, with line
+    CODEBLOCK BREAK('/') . CODE '//' = 
+    OUTPUT = CAUSE CODE LINE
+*   Output additional lines of code, if any
+PASS2LLOOP
+    CODEBLOCK BREAK('/') . CODE '//' =       :F(PASS2)
+    OUTPUT = CAUSE CODE                            :(PASS2LLOOP)
+*   Error messages
+ERRLINE
+    OUTPUT = CAUSE RPAD(' ',32) LINE :(PASS2)
+*   None code lines
+PRINTLINE
+    OUTPUT = RPAD(' ',34) LINE  :(PASS2)
+DONE
+*
+*   Finished assembly, Dump symbols and memory.
+*   TBD: Write HEX file
+*
+    DUMPSUMBOLS()
+    DUMPMEMORY()
+END
+
