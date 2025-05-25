@@ -838,16 +838,21 @@ CHECKSUM2
 WRITEHEXFILE
     L = LOWMEM
 WRITEHEXFILE1
-    COUNT = 32
-    COUNT = GT(COUNT,(HIGHMEM + 1) - L) (HIGHMEM + 1) - L
-    REC = LPAD(BASEB(COUNT,16),2,'0') LPAD(BASEB(L,16),4,'0') '00'
+    COUNT = 0
+    REC = LPAD(BASEB(L,16),4,'0') '00'
 WRITEHEXFILE2
+    GE(COUNT,32)                        :S(WRITEHEXFILE_PRINT)
+    DIFFER(MEMORY<L>)                   :F(WRITEHEXFILE_PRINT)
     REC = REC LPAD(BASEB(MEMORY<L>,16),2,'0')
     L = L + 1
-    COUNT = COUNT - 1
-    GT(COUNT,0)                             :S(WRITEHEXFILE2)
+    COUNT = COUNT + 1                   :(WRITEHEXFILE2)
+WRITEHEXFILE_PRINT
+    EQ(COUNT,0)                         :S(WRITEHEXFILE3)
+    REC = LPAD(BASEB(COUNT,16),2,'0') REC
     PUNCH = ':' REC CHECKSUM(REC)
-    LT(L,HIGHMEM)                           :S(WRITEHEXFILE1)
+    LE(L,HIGHMEM) DIFFER(MEMORY<L>)      :S(WRITEHEXFILE1)
+WRITEHEXFILE3
+    L = LT(L,HIGHMEM) L + 1              :S(WRITEHEXFILE1)
     PUNCH = ':00000001FF'                   :(RETURN)
 WRITEHEXFILE_END
 *   Scratch file
