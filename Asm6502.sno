@@ -89,11 +89,11 @@ JSR1
 *
     SHIFTOPPAT = 'ASL' | 'ROL' | 'LSR' | 'ROR' | 'DEC' | 'INC'
     SHIFT_ISADRMODE = 'ACC,Z,A,ZX,AX,'
-    SHIFT_P2ADRMODE = 'ACC:2,Z:1,A:3,ZX:5,AX:7,'    
+    SHIFT_P2ADRMODE = 'Z:1,ACC:2,A:3,ZX:5,AX:7,'    
     SHIFT = 'ASL 0,ROL 1,LSR 2,ROR 3,DEC 6,INC 7,'
     SHIFTOPS = TABLE()
 SHIFT_INIT SHIFT BREAK(' ') . SHIFTOP ' '  BREAK(',') . CODE ',' = :F(YREG1)
-    SHIFTOPS<SHIFTOP ' ' ADDRMODE> = BASE10(CODE,16)    :(SHIFT_INIT)
+    SHIFTOPS<SHIFTOP> = BASE10(CODE,16)    :(SHIFT_INIT)
 YREG1
 *
 * X and Y register instructions
@@ -703,28 +703,28 @@ P2_EMIT_SHIFT
 +                                                      :F(FRETURN)S(RETURN)
 P2_EMIT_BIT
     PASS2_PROCESS = PASS2_PROCESS ' '
-        PASS2_ADDRMODE(1,0,'Z:1,A:3,',REMAINDER,5)      :F(FRETURN)S(RETURN)
++        PASS2_ADDRMODE(1,0,'Z:1,A:3,',REMAINDER,5)      :F(FRETURN)S(RETURN)
 P2_EMIT_XY                                              :($('P2_EMIT_' OP))
 P2_EMIT_STX
     PASS2_PROCESS = PASS2_PROCESS ' '
-        PASS2_ADDRMODE(4,2,'Z:1,A:3,ZY:5,',REMAINDER,5)   :F(FRETURN)S(RETURN)
++        PASS2_ADDRMODE(4,2,'Z:1,A:3,ZY:5,',REMAINDER,5)   :F(FRETURN)S(RETURN)
 P2_EMIT_LDX
     PASS2_PROCESS = PASS2_PROCESS ' '
-        PASS2_ADDRMODE(5,2,'IM:0,Z:1,A:3,ZY:5,AY:7,',REMAINDER,5)
++        PASS2_ADDRMODE(5,2,'IM:0,Z:1,A:3,ZY:5,AY:7,',REMAINDER,5)
 +                                                          :F(FRETURN)S(RETURN)
 P2_EMIT_CPX
     PASS2_PROCESS = PASS2_PROCESS ' '
-        PASS2_ADDRMODE(7,0,'IM:0,Z:1,A:3,',REMAINDER,5)   :F(FRETURN)S(RETURN)
++        PASS2_ADDRMODE(7,0,'IM:0,Z:1,A:3,',REMAINDER,5)   :F(FRETURN)S(RETURN)
 P2_EMIT_STY
     PASS2_PROCESS = PASS2_PROCESS ' '
-        PASS2_ADDRMODE(4,0,'Z:1,A:3,ZX:5,',REMAINDER,5)   :F(FRETURN)S(RETURN)
++        PASS2_ADDRMODE(4,0,'Z:1,A:3,ZX:5,',REMAINDER,5)   :F(FRETURN)S(RETURN)
 P2_EMIT_LDY
     PASS2_PROCESS = PASS2_PROCESS ' '
-        PASS2_ADDRMODE(5,0,'IM:0,Z:1,A:3,ZX:5,AX:7,',REMAINDER,5)
++        PASS2_ADDRMODE(5,0,'IM:0,Z:1,A:3,ZX:5,AX:7,',REMAINDER,5)
 +                                                          :F(FRETURN)S(RETURN)
 P2_EMIT_CPY
     PASS2_PROCESS = PASS2_PROCESS ' '
-        PASS2_ADDRMODE(6,0,'IM:0,Z:1,A:3,,',REMAINDER,5)   :F(FRETURN)S(RETURN)
++        PASS2_ADDRMODE(6,0,'IM:0,Z:1,A:3,,',REMAINDER,5)   :F(FRETURN)S(RETURN)
 P2_EMIT_IMPL
     MEMORYSTORE(LOC,IMPLOPS<OP>)
     PASS2_PROCESS = PASS2_PROCESS ' ' LPAD(BASEB(MEMORY<LOC>,16),2,'0')
@@ -751,6 +751,9 @@ ARGC2
 ARGC_END
 * Source file
     SOURCEFILE = HOST(2,ARGC)
+    TERMINAL = '[ARGC_END] SOURCEFILE = "' SOURCEFILE '"'
+    TERMINAL = '[ARGC_END] LISTFILE = "' LISTFILE '"'
+    TERMINAL = '[ARGC_END] PUNCHFILE = "' PUNCHFILE '"'
 * Open files
     IDENT(SOURCEFILE,'-') INPUT(.SOURCE,5)
     DIFFER(SOURCEFILE,'-') INPUT(.SOURCE,5,,SOURCEFILE) :F(NOSOURCE)
@@ -816,9 +819,35 @@ SYMBOLTABLE_END
 *   Returns: nothing
 *   Side effects: assembled memory is sent to PUNCH output in HEX format
 *
-    DEFINE('WRITEHEXFILE()')                :(WRITEHEXFILE_END)
+    DEFINE('WRITEHEXFILE()REC,COUNT,L')
+*
+*   CHECKSUM(REC) -- Helper Function to compute the checksum
+*   Params: REC -- the bytes (in HEX)
+*   Returns: The checksum, in HEX
+*
+    DEFINE('CHECKSUM(REC)SUM,BYTE')              :(WRITEHEXFILE_END)
+CHECKSUM
+    SUM = 0
+CHECKSUM1
+    REC LEN(2) . BYTE =                          :F(CHECKSUM2)
+    SUM = SUM + BASE10(BYTE,16)                  :(CHECKSUM1)
+CHECKSUM2
+    CHECKSUM = LPAD(BASEB(256 - REMDR(SUM,256),16),2,'0')
+                                                  :(RETURN)
 WRITEHEXFILE
-                                            :(RETURN)
+    L = LOWMEM
+WRITEHEXFILE1
+    COUNT = 32
+    COUNT = GT(COUNT,(HIGHMEM + 1) - L) (HIGHMEM + 1) - L
+    REC = LPAD(BASEB(COUNT,16),2,'0') LPAD(BASEB(L,16),4,'0') '00'
+WRITEHEXFILE2
+    REC = REC LPAD(BASEB(MEMORY<L>,16),2,'0')
+    L = L + 1
+    COUNT = COUNT - 1
+    GT(COUNT,0)                             :S(WRITEHEXFILE2)
+    PUNCH = ':' REC CHECKSUM(REC)
+    LT(L,HIGHMEM)                           :S(WRITEHEXFILE1)
+    PUNCH = ':00000001FF'                   :(RETURN)
 WRITEHEXFILE_END
 *   Scratch file
     OUTPUT(.DISK,10,,'/tmp/Asm6502')
@@ -910,8 +939,8 @@ DONE
 *   Finished assembly, Dump symbols and memory.
 *   TBD: Write HEX file
 *
-    DUMPSUMBOLS()
-    DUMPMEMORY()
+*    DUMPSUMBOLS()
+*    DUMPMEMORY()
     SYMBOLTABLE()
     WRITEHEXFILE()                  :(END)
 NOSOURCE
