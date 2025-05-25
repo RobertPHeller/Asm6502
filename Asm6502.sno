@@ -18,9 +18,9 @@
     DEFINE('PRINT_TABLE(N,T)TA') :(PRINT_TABLE_END)
 PRINT_TABLE 
     TA = CONVERT(T,'ARRAY')       :F(FRETURN)
-    OUTPUT = 'Table ' N ':'
+    TERMINAL = 'Table ' N ':'
     I = 1
-PRINT_TABLE_L OUTPUT = TA<I,1> ' = ' TA<I,2> :F(RETURN)
+PRINT_TABLE_L TERMINAL = TA<I,1> ' = ' TA<I,2> :F(RETURN)
     I = I + 1                   :(PRINT_TABLE_L)
 PRINT_TABLE_END
 * BASE10 - BASE10(N,B) will convert the string N assumed
@@ -65,7 +65,7 @@ ALU_INIT ALU BREAK(' ') . ALUOP ' ' BREAK(',') . CODE ',' = :F(BRANCH1)
 * Relative branch instructions
 *
 BRANCH1
-*    OUTPUT = '@BRANCH1' 
+*    TERMINAL = '@BRANCH1' 
 *    PRINT_TABLE('ALUOPS',ALUOPS)    
     BRANCH = 'BPL 10,BMI 30,BVC 50,BVS 70,BCC 90,BCS B0,BNE D0,BEQ F0,'
     BRANCHOPPAT = 'BPL' | 'BMI' | 'BVC' | 'BVS' | 'BCC' | 'BCS' | 'BNE' | 'BEQ'
@@ -76,7 +76,7 @@ BRANCH_INIT BRANCH BREAK(' ') . BROP ' ' BREAK(',') . CODE ',' = :F(JSR1)
 * JMP and JSR instructions
 *
 JSR1 
-*    OUTPUT = '@JSR1'
+*    TERMINAL = '@JSR1'
 *    PRINT_TABLE('BRANCHOPS',BRANCHOPS)
     JUMPOPS = TABLE()
     JUMPOPPAT = 'JSR' | 'JMP'
@@ -115,7 +115,7 @@ IMPL_INIT IMPL  BREAK(' ') . IMPLOP ' ' BREAK(',') . CODE ',' =
 IMPL_INIT1
     IMPLOPS<IMPLOP> = BASE10(CODE,16)    :(IMPL_INIT)
 INSTRUCTIONS1
-*    OUTPUT = '@INSTRUCTIONS1'
+*    TERMINAL = '@INSTRUCTIONS1'
 *    PRINT_TABLE('IMPLOPS',IMPLOPS)
 *
 * All Instructions
@@ -177,21 +177,17 @@ INSTRUCTIONS1
 *
     DEFINE('DUMPSUMBOLS()A,I')       :(DUMPSUMBOLS_END)
 DUMPSUMBOLS
-    OUTPUT = "Symbols: "
+    TERMINAL = "Symbols: "
     A = CONVERT(SYMS,'ARRAY')           :F(RETURN)
     I = 1
 DUMPSUMBOLS_1
-    OUTPUT = A<I,1> ' = ' LPAD(BASEB(A<I,2>,16),4,'0')        :F(RETURN)
+    TERMINAL = A<I,1> ' = ' LPAD(BASEB(A<I,2>,16),4,'0')        :F(RETURN)
     I = I + 1                           :(DUMPSUMBOLS_1)
 DUMPSUMBOLS_END
 *   Match a Label, asssign to L
     LABEL.L = POS(0) (SYMBOL | '') . L BL
 *   Match a comment
     COMMENT = ';' ARB RPOS(0)
-*   Location counter
-    LOC = 0
-*   Scratch file
-    OUTPUT(.DISK,10,,'temp')
 *
 * Pass1 instruction size check functions:
 *
@@ -227,11 +223,11 @@ ZPG_CHECK_HEX
     H ('$' | '0X') =
     D = BASE10(H,16)                            :(ZPG_CHECK_DEC)
 IS_ADDRMODE
-*    OUTPUT = '[IS_ADDRMODE] ADDMODES = "' ADDMODES '" REMAINDER = "' 
+*    TERMINAL = '[IS_ADDRMODE] ADDMODES = "' ADDMODES '" REMAINDER = "' 
 *+                       REMAINDER '"'
     ADDMODES BREAK(',') . MODE ',' =      :F(FRETURN)S($('IS_ADDRMODE_' MODE))
 IS_ADDRMODE_IM
-*    OUTPUT = '[IS_ADDRMODE_IM] REMAINDER is "' REMAINDER '"'
+*    TERMINAL = '[IS_ADDRMODE_IM] REMAINDER is "' REMAINDER '"'
     REMAINDER IMMED.C           :F(IS_ADDRMODE)
     IS_ADDRMODE = 2             :(RETURN)
 IS_ADDRMODE_Z
@@ -261,21 +257,21 @@ IS_ADDRMODE_IY
     REMAINDER Y_INDIRECT.A              :F(IS_ADDRMODE)
     IS_ADDRMODE = ZPG_CHECK(A) 2        :S(RETURN)F(IS_ADDRMODE)
 INSTRUCTION_SIZE
-*    OUTPUT = '[INSTRUCTION_SIZE] OP = "' OP '" - "' REMAINDER '"'
+*    TERMINAL = '[INSTRUCTION_SIZE] OP = "' OP '" - "' REMAINDER '"'
     OP ALUOPPAT                 :S(IS_ALU)
-*    OUTPUT = '[INSTRUCTION_SIZE] "' OP '" ALUOPPAT failed'
+*    TERMINAL = '[INSTRUCTION_SIZE] "' OP '" ALUOPPAT failed'
     OP BRANCHOPPAT              :S(IS_BRANCH)
-*    OUTPUT = '[INSTRUCTION_SIZE] "' OP '" BRANCHOPPAT failed'
+*    TERMINAL = '[INSTRUCTION_SIZE] "' OP '" BRANCHOPPAT failed'
     OP JUMPOPPAT                :S(IS_JUMP)
-*    OUTPUT = '[INSTRUCTION_SIZE] "' OP '" JUMPOPPAT failed'
+*    TERMINAL = '[INSTRUCTION_SIZE] "' OP '" JUMPOPPAT failed'
     OP SHIFTOPPAT               :S(IS_SHIFT)
-*    OUTPUT = '[INSTRUCTION_SIZE] "' OP '" SHIFTOPPAT failed' 
+*    TERMINAL = '[INSTRUCTION_SIZE] "' OP '" SHIFTOPPAT failed' 
     OP YREGOPPAT | XREGOPPAT    :S(IS_XY)
-*    OUTPUT = '[INSTRUCTION_SIZE] "' OP '" YREGOPPAT | XREGOPPAT failed'
+*    TERMINAL = '[INSTRUCTION_SIZE] "' OP '" YREGOPPAT | XREGOPPAT failed'
     IDENT(OP,'BIT')             :S(IS_BIT)
-*    OUTPUT = '[INSTRUCTION_SIZE] IDENT("' OP '","BIT") failed'
+*    TERMINAL = '[INSTRUCTION_SIZE] IDENT("' OP '","BIT") failed'
     OP IMPLOPPAT                :S(IS_IMPL)
-*    OUTPUT = '[INSTRUCTION_SIZE] "' OP '" IMPLOPPAT failed' :(FRETURN)
+*    TERMINAL = '[INSTRUCTION_SIZE] "' OP '" IMPLOPPAT failed' :(FRETURN)
 IS_ALU
     
     INSTRUCTION_SIZE = IDENT(OP,'STA') IS_ADDRMODE(REMAINDER,STA_ISADRMODE) :S(RETURN)
@@ -316,9 +312,9 @@ INSTRUCTION_SIZE_END
 *
     DEFINE('PASS1_PROCESS(LABEL,OP,REMAINDER)SIZE,H,D,C')   :(PASS1_PROCESS_END)
 PASS1_PROCESS
-*    OUTPUT = '[PASS1_PROCESS]: "' LABEL '" -  "' OP '" -  "' REMAINDER '"'
+*    TERMINAL = '[PASS1_PROCESS]: "' LABEL '" -  "' OP '" -  "' REMAINDER '"'
     OP DIRECTIVES               :S($('P1_DIR_' OP))
-*    OUTPUT = '[PASS1_PROCESS]: OP DIRECTIVES failed'
+*    TERMINAL = '[PASS1_PROCESS]: OP DIRECTIVES failed'
     SIZE = INSTRUCTION_SIZE(OP,REMAINDER ' ') :S(P1_LABEL)F(FRETURN)
 P1_DIR_END
     END = 1                     :(RETURN)
@@ -349,9 +345,9 @@ P1_DIR_DATA
 PI_DIR_END
                                  :(RETURN)
 P1_LABEL
-*    OUTPUT = '[PASS1_PROCESS] "' LABEL '" - ' LOC
+*    TERMINAL = '[PASS1_PROCESS] "' LABEL '" - ' LOC
     SYMS<DIFFER(LABEL) LABEL> = LOC
-*    OUTPUT = '[PASS1_PROCESS] SYMS<"' LABEL '"> = ' SYMS<LABEL>
+*    TERMINAL = '[PASS1_PROCESS] SYMS<"' LABEL '"> = ' SYMS<LABEL>
     LOC = LOC + SIZE               :(RETURN)
 PASS1_PROCESS_END
 *
@@ -388,7 +384,7 @@ MEMORYSTORE
     HIGHMEM = IDENT(HIGHMEM) L
     HIGHMEM = GT(L,HIGHMEM) L   :(RETURN)
 DUMPMEMORY
-    OUTPUT = "Memory: "
+    TERMINAL = "Memory: "
     L = LOWMEM
 DUMPMEMORY_1
     CODE = LPAD(BASEB(L,16),4,'0')
@@ -400,9 +396,9 @@ DUMPMEMORY_2
     L = L + 1
     CLEN = CLEN + 1 + 2         :(DUMPMEMORY_2)
 DUMPMEMORY_F1
-    OUTPUT = CODE               :(DUMPMEMORY_1)
+    TERMINAL = CODE               :(DUMPMEMORY_1)
 DUMPMEMORY_FLUSH
-    OUTPUT = CODE               :(RETURN)
+    TERMINAL = CODE               :(RETURN)
 MEMORYSTORE_END
 *
 * More Pass 2 helper functions
@@ -439,7 +435,7 @@ MEMORYSTORE_END
     DEFINE('PASS2_ADDRMODE(OP_A,OP_C,OP_B,REMAINDER,CLEN)MODE,B,H,D1,D2,C,A,OPCODE') 
                                                 :(PASS2_ADDRMODE_END)
 PASS2_ZPG
-*    OUTPUT = '[PASS2_ZPG] A = "' A '"'
+*    TERMINAL = '[PASS2_ZPG] A = "' A '"'
     A POS(0) DECCONST . D RPOS(0)                             :S(PASS2_ZPG_DEC)
     A POS(0) HEXCONST . H RPOS(0)                             :S(PASS2_ZPG_HEX)
     D = IDENT(A,'*') LOC                                      :S(PASS2_ZPG_DEC)
@@ -449,10 +445,10 @@ PASS2_ZPG_DEC
     PASS2_ZPG = LT(D,256) D                     :S(RETURN)F(FRETURN)
 PASS2_ZPG_HEX
     H ('$' | '0X') =
-*    OUTPUT = '[PASS2_ZPG] H (sans prefix) = "' H '"'
+*    TERMINAL = '[PASS2_ZPG] H (sans prefix) = "' H '"'
     D = BASE10(H,16)                              :(PASS2_ZPG_DEC)
 PASS2_ABS
-*    OUTPUT = '[PASS2_ABS] A = "' A '"'
+*    TERMINAL = '[PASS2_ABS] A = "' A '"'
     A POS(0) DECCONST . PASS2_ABS RPOS(0)                      :S(RETURN)
     A POS(0) HEXCONST . H RPOS(0)                             :S(PASS2_ABS_HEX)
     PASS2_ABS = IDENT(A,'*') LOC                                :S(RETURN)
@@ -460,7 +456,7 @@ PASS2_ABS
     PASS2_ABS = DIFFER(SYMS<S>) SYMS<S>         :F(PASS2_ABS_UA)S(RETURN)
 PASS2_ABS_HEX
     H ('$' | '0X') =
-*    OUTPUT = '[PASS2_ABS] H (sans prefix) = "' H '"'
+*    TERMINAL = '[PASS2_ABS] H (sans prefix) = "' H '"'
     PASS2_ABS = BASE10(H,16)                    :(RETURN)
 PASS2_ABS_UA
     PASS2_ABS = 0
@@ -468,7 +464,7 @@ PASS2_ABS_UA
 PASS2_ADDRMODE
     OPCODE = OP_A * 32 + OP_C
 PASS2_ADDRMODE_1
-*    OUTPUT = '[PASS2_ADDRMODE_1] OP_B = "' OP_B '", REMAINDER = "' REMAINDER '"'
+*    TERMINAL = '[PASS2_ADDRMODE_1] OP_B = "' OP_B '", REMAINDER = "' REMAINDER '"'
     OP_B BREAK(':') . MODE ':' BREAK(',') . B ',' = 
 +                       :F(PASS2_ADDRMODE_ERR)S($('PASS2_ADDRMODE_' MODE))
 PASS2_ADDRMODE_IM
@@ -576,7 +572,7 @@ PASS2_ADDRMODE_END
     DEFINE('PASS2_PROCESS(OP,REMAINDER)SIZE,H,D1,D2,C,A,OPCODE,CLEN') 
                                                 :(PASS2_PROCESS_END)
 PASS2_PROCESS
-*    OUTPUT = '[PASS2_PROCESS] "' OP '" "' REMAINDER '"'
+*    TERMINAL = '[PASS2_PROCESS] "' OP '" "' REMAINDER '"'
     OP DIRECTIVES               :S($('P2_DIR_' OP))F(P2_EMIT)
 P2_DIR_DEF CAUSE = '  '                     :(RETURN)
 P2_DIR_ORG
@@ -640,7 +636,7 @@ P2_DIR_END
     CLEN = 4
     PASS2_PROCESS = PASS2_PROCESS RPAD(' ',32 - CLEN) '//'        :(RETURN)
 P2_EMIT
-*    OUTPUT = '[PASS2_PROCESS] OP DIRECTIVES failed'
+*    TERMINAL = '[PASS2_PROCESS] OP DIRECTIVES failed'
     CAUSE = '  '
     PASS2_PROCESS = LPAD(BASEB(LOC,16),4,'0')
     CLEN = 4
@@ -665,9 +661,9 @@ P2_EMIT_BRANCH
     REMAINDER ADDRESS.A                                 :F(FRETURN)
     CAUSE = '  '
     D = PASS2_ABS(A) - (LOC + 2)
-*    OUTPUT = '[P2_EMIT_BRANCH] D = ' D
+*    TERMINAL = '[P2_EMIT_BRANCH] D = ' D
     D = LT(D,0) 256 + D
-*    OUTPUT = '[P2_EMIT_BRANCH](2) D = ' D
+*    TERMINAL = '[P2_EMIT_BRANCH](2) D = ' D
     MEMORYSTORE(LOC,BRANCHOPS<OP>)
     PASS2_PROCESS = PASS2_PROCESS ' ' LPAD(BASEB(MEMORY<LOC>,16),2,'0')
     LOC = LOC + 1
@@ -736,6 +732,96 @@ P2_EMIT_IMPL
     CLEN = CLEN + 1 + 2
     PASS2_PROCESS = PASS2_PROCESS RPAD(' ',32 - CLEN) '//' :(RETURN)
 PASS2_PROCESS_END
+*   Location counter
+    LOC = 0
+*   default I/O filenames
+    SOURCEFILE = "-"
+    LISTFILE = "-"
+    PUNCHFILE = "out.hex"
+*   Process comand line options
+    OPTS.OPT = POS(0) '-' ANY('lo') . OPT
+    ARGC = HOST(3)
+ARGC1
+    HOST(2,ARGC) OPTS.OPT                     :F(ARGC_END)
+    ARGC = ARGC + 1
+    LISTFILE = IDENT(OPT,'l') HOST(2,ARGC)       :S(ARGC2)
+    PUNCHFILE = IDENT(OPT,'o') HOST(2,ARGC)       :S(ARGC2)
+ARGC2
+    ARGC = ARGC + 1                             :(ARGC1)
+ARGC_END
+* Source file
+    SOURCEFILE = HOST(2,ARGC)
+* Open files
+    IDENT(SOURCEFILE,'-') INPUT(.SOURCE,5)
+    DIFFER(SOURCEFILE,'-') INPUT(.SOURCE,5,,SOURCEFILE) :F(NOSOURCE)
+    IDENT(LISTFILE,'-') OUTPUT(.LIST,6)
+    DIFFER(LISTFILE,'-') OUTPUT(.LIST,6,,LISTFILE) :F(NOLIST)
+    OUTPUT(.PUNCH,9,,PUNCHFILE)                     :F(NOPUNCH)
+*
+*   PRINTLINE(LL) -- Print a line to the listfile.  Generate page headings.
+*   Params:
+*   LL The line to print
+*   Returns: nothing
+*   Side effects: sends the line to a LIST output.  Updates LINECOUNT and
+*   creates a page heading every 60 lines.
+*
+    DEFINE('PRINTLINE(LL)')
+*   Heading subtitle
+    HEADING = 
+* Globale line count
+    LINECOUNT = 9999
+* Page feed character
+    PAGEFEED = 12
+* Current page number
+    PAGENUMBER = 0                      :(PRINTLINE_END)
+PRINTLINE
+*    TERMINAL = '[PRINTLINE] LINECOUNT is ' LINECOUNT
+    LT(LINECOUNT,60)                    :S(PRINTLINE1)
+    PAGENUMBER = PAGENUMBER + 1
+    LIST = CHAR(PAGEFEED) RPAD('Asm65602 ' HEADING ' ' SOURCEFILE,132) 
++                           ' Page ' LPAD(PAGENUMBER,6,' ')
+    LIST = 
+    LINECOUNT = 2
+PRINTLINE1
+    LIST = LL
+    LINECOUNT = LINECOUNT + 1           :(RETURN)
+PRINTLINE_END
+*
+*   SYMBOLTABLE() -- Print the Symbol Table to the LIST output
+*   Params: none
+*   Returns: nothing
+*   Side effects:  Symbol table is nicely printed to the LIST output
+*
+    DEFINE('SYMBOLTABLE()A,I,LINE')                 :(SYMBOLTABLE_END)
+SYMBOLTABLE
+    LINECOUNT = 9999
+    HEADING = '(Symbols)'
+    A = CONVERT(SYMS,'ARRAY')           :F(RETURN)
+    I = 1
+    LINE =
+SYMBOLTABLE_1
+    GE(SIZE(LINE),128)                      :S(SYMBOLTABLE_PRINT)
+    LINE = LINE RPAD(A<I,1> ' = ' LPAD(BASEB(A<I,2>,16),4,'0'),32) 
++                                           :F(SYMBOLTABLE_PRINT)
+    I = I + 1                               :(SYMBOLTABLE_1)
+SYMBOLTABLE_PRINT
+    IDENT(LINE)                             :S(RETURN)
+    PRINTLINE(LINE)
+    LINE =                                  :(SYMBOLTABLE_1)
+SYMBOLTABLE_END
+*
+*   WRITEHEXFILE() -- Dump assembled memory to the PUNCH file in
+*                     HEX format
+*   Params: none
+*   Returns: nothing
+*   Side effects: assembled memory is sent to PUNCH output in HEX format
+*
+    DEFINE('WRITEHEXFILE()')                :(WRITEHEXFILE_END)
+WRITEHEXFILE
+                                            :(RETURN)
+WRITEHEXFILE_END
+*   Scratch file
+    OUTPUT(.DISK,10,,'/tmp/Asm6502')
 *
 *   END flag -- set if END directive seen
 *
@@ -744,11 +830,12 @@ PASS2_PROCESS_END
 *   Pass 1 loop:
 *
 PASS1
-*    OUTPUT = '[PASS1] LOC = ' LOC
+*    TERMINAL = '[PASS1] LOC = ' LOC
 *   If end, set up for pass 2
     EQ(END,1)               :S(INIT2)
 *   Read a line, exit loop on EOF
-    X = INPUT               :F(INIT2)
+    X = SOURCE               :F(INIT2)
+*    TERMINAL = '[PASS1] X = "' X '"'
 *   Save for error messages
     LINE = X
 *   Save for pass 2
@@ -759,34 +846,34 @@ PASS1
     X POS(0) (BL | '') RPOS(0) :S(PASS1)
 *   Make all uppercase
     X = REPLACE(X,&LCASE,&UCASE)
-*    OUTPUT = '[PASS1] X = "' X '"'
+*    TERMINAL = '[PASS1] X = "' X '"'
 *   Get label, if any
     L = ''
     X LABEL.L =
-*    OUTPUT = '[PASS1] L = "' L '"'
+*    TERMINAL = '[PASS1] L = "' L '"'
 *   Peel off opcode
     X OP.O =
 *   Process statement and loop
     PASS1_PROCESS(L,O,X ' ')        :S(PASS1)
 PASS1_ILL
 *   Error messaging
-    OUTPUT = "Undefined instruction: " LINE :(PASS1)
+    TERMINAL = "Undefined instruction: " LINE :(PASS1)
 INIT2
 *   Initialize for pass 2
-*    OUTPUT = '[INIT2] LOC = ' LOC
+*    TERMINAL = '[INIT2] LOC = ' LOC
 *    PRINT_TABLE('SYMS',SYMS)
 *    REWIND(10)
 *   Close scratch file
     DETACH(.DISK)
 *   Open it for input
-    INPUT(.DISK,10,,'temp')
+    INPUT(.DISK,10,,'/tmp/Asm6502')
 *   reset location counter
     LOC = 0
 *   Pass 2
 PASS2
 *   Assume Illegal instruction
     CAUSE = 'II'
-*    OUTPUT = '[PASS2] LOC = ' LOC
+*    TERMINAL = '[PASS2] LOC = ' LOC
 *   Fetch line, exit on EOF
     LINE = DISK ' '                 :F(DONE)
 *   Copy line
@@ -794,7 +881,7 @@ PASS2
 *   Strip off comment
     X COMMENT =
 *   Skip blank statements
-    X POS(0) (BL | '') RPOS(0) :S(PRINTLINE)
+    X POS(0) (BL | '') RPOS(0) :S(PRINTEMPTYLINE)
 *   Make all uppercase
     X = REPLACE(X,&LCASE,&UCASE)
 *   Peel off label if any
@@ -807,17 +894,17 @@ PASS2
     CODEBLOCK = PASS2_PROCESS(O,X ' ')        :F(ERRLINE)
 *   Output code, with line
     CODEBLOCK BREAK('/') . CODE '//' = 
-    OUTPUT = CAUSE CODE LINE
+    PRINTLINE(CAUSE CODE LINE)
 *   Output additional lines of code, if any
 PASS2LLOOP
     CODEBLOCK BREAK('/') . CODE '//' =       :F(PASS2)
-    OUTPUT = CAUSE CODE                            :(PASS2LLOOP)
+    PRINTLINE(CAUSE CODE)                            :(PASS2LLOOP)
 *   Error messages
 ERRLINE
-    OUTPUT = CAUSE RPAD(' ',32) LINE :(PASS2)
+    PRINTLINE(CAUSE RPAD(' ',32) LINE) :(PASS2)
 *   None code lines
-PRINTLINE
-    OUTPUT = RPAD(' ',34) LINE  :(PASS2)
+PRINTEMPTYLINE
+    PRINTLINE(RPAD(' ',34) LINE)  :(PASS2)
 DONE
 *
 *   Finished assembly, Dump symbols and memory.
@@ -825,5 +912,13 @@ DONE
 *
     DUMPSUMBOLS()
     DUMPMEMORY()
+    SYMBOLTABLE()
+    WRITEHEXFILE()                  :(END)
+NOSOURCE
+    TERMINAL = 'Could not open source file: ' SOURCEFILE :(END)
+NOLIST
+    TERMINAL = 'Could not open listfile: ' LISTFILE :(END)
+NOPUNCH
+    TERMINAL = 'Could not open hexfile: ' PUNCHFILE :(END)
 END
 
