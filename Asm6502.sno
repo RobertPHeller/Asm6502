@@ -768,7 +768,7 @@ ARGC_END
 *   Side effects: sends the line to a LIST output.  Updates LINECOUNT and
 *   creates a page heading every 60 lines.
 *
-    DEFINE('PRINTLINE(LL)')
+    DEFINE('PRINTLINE(LL)FF')
 *   Heading subtitle
     HEADING = 
 * Globale line count
@@ -781,7 +781,8 @@ PRINTLINE
 *    TERMINAL = '[PRINTLINE] LINECOUNT is ' LINECOUNT
     LT(LINECOUNT,60)                    :S(PRINTLINE1)
     PAGENUMBER = PAGENUMBER + 1
-    LIST = CHAR(PAGEFEED) RPAD('Asm65602 ' HEADING ' ' SOURCEFILE,132) 
+    FF = GT(PAGENUMBER,1) CHAR(PAGEFEED)
+    LIST = FF RPAD('Asm65602 ' HEADING ' ' SOURCEFILE,132) 
 +                           ' Page ' LPAD(PAGENUMBER,6,' ')
     LIST = 
     LINECOUNT = 2
