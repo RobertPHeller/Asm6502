@@ -892,7 +892,7 @@ PRINTLINE
     LT(LINECOUNT,60)                    :S(PRINTLINE1)
     PAGENUMBER = PAGENUMBER + 1
     FF = GT(PAGENUMBER,1) CHAR(PAGEFEED)
-    LIST = FF RPAD('Asm6502 ' HEADING ' ' SOURCEFILE,132) 
+    LIST = FF RPAD('Asm6502 ' HEADING ' ' SOURCEFILE,132 - (6 + 6)) 
 +                           ' Page ' LPAD(PAGENUMBER,6,' ')
     LIST = 
     LINECOUNT = 2
