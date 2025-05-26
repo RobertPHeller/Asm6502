@@ -915,7 +915,7 @@ SYMBOLTABLE
     LINE =
 SYMBOLTABLE_1
     GT(SIZE(LINE) + 32,132)                      :S(SYMBOLTABLE_PRINT)
-    LINE = LINE RPAD(A<I,1> ' = ' LPAD(BASEB(A<I,2>,16),4,'0'),32) 
+    LINE = LINE RPAD(A<I,1>,32 - 5) LPAD(BASEB(A<I,2>,16),4,'0') ' '
 +                                           :F(SYMBOLTABLE_PRINT)
     I = I + 1                               :(SYMBOLTABLE_1)
 SYMBOLTABLE_PRINT
