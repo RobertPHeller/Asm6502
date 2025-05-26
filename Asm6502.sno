@@ -971,7 +971,7 @@ TSORT_END
 *   Returns: nothing
 *   Side effects:  Symbol table is nicely printed to the LIST output
 *
-    DEFINE('SYMBOLTABLE()A,SYM,LINE,I,SORTED,N')            :(SYMBOLTABLE_END)
+    DEFINE('SYMBOLTABLE()LINE,I,SORTED,N')            :(SYMBOLTABLE_END)
 SYMBOLTABLE
     LINECOUNT = 9999
     HEADING = '(Symbols)'
