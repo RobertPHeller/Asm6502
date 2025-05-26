@@ -978,7 +978,9 @@ WRITEHEXFILE3
     PUNCH = ':00000001FF'                   :(RETURN)
 WRITEHEXFILE_END
 *   Scratch file
-    OUTPUT(.DISK,10,,'/tmp/Asm6502')
+-include 'bq.sno'
+    TEMPFILE = bq('mktemp') 
+    OUTPUT(.DISK,10,,TEMPFILE)
 *
 *   END flag -- set if END directive seen
 *
@@ -1023,7 +1025,7 @@ INIT2
 *   Close scratch file
     DETACH(.DISK)
 *   Open it for input
-    INPUT(.DISK,10,,'/tmp/Asm6502')
+    INPUT(.DISK,10,,TEMPFILE)
 *   reset location counter
     LOC = 0
 *   Pass 2
@@ -1063,6 +1065,8 @@ ERRLINE
 PRINTEMPTYLINE
     PRINTLINE(RPAD(' ',34) LINE)  :(PASS2)
 DONE
+*   Remove scratch file
+    DELETE(TEMPFILE)
 *
 *   Finished assembly.
 *
