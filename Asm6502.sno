@@ -1064,12 +1064,13 @@ PRINTEMPTYLINE
     PRINTLINE(RPAD(' ',34) LINE)  :(PASS2)
 DONE
 *
-*   Finished assembly, Dump symbols and memory.
-*   TBD: Write HEX file
+*   Finished assembly.
 *
 *    DUMPSUMBOLS()
 *    DUMPMEMORY()
+*   Print Symbol Table to LIST
     SYMBOLTABLE()
+*   Write hex file to PUNCH
     WRITEHEXFILE()                  :(END)
 NOSOURCE
     TERMINAL = 'Could not open source file: ' SOURCEFILE :(END)
