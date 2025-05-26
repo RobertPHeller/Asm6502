@@ -979,7 +979,8 @@ WRITEHEXFILE3
 WRITEHEXFILE_END
 *   Scratch file
 -include 'bq.sno'
-    TEMPFILE = bq('mktemp') 
+    TEMPFILE = bq('/usr/bin/mktemp /tmp/Asm6502XXXXXX')
+*    TERMINAL = 'TEMPFILE = "' TEMPFILE '"' 
     OUTPUT(.DISK,10,,TEMPFILE)
 *
 *   END flag -- set if END directive seen
