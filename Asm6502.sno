@@ -900,24 +900,72 @@ PRINTLINE1
     LIST = LL
     LINECOUNT = LINECOUNT + 1           :(RETURN)
 PRINTLINE_END
+* SWAP.inc - SWAP(.N,.M) will swap the contents of the two named
+*	     variables.
+*
+	DEFINE('SWAP(SWAP_ARG1,SWAP_ARG2)')	:(SWAP_END)
+SWAP	SWAP  =  $SWAP_ARG1
+	$SWAP_ARG1  =  $SWAP_ARG2
+	$SWAP_ARG2  =  SWAP
+	SWAP  =					:(RETURN)
+SWAP_END
+* HSORT.inc - HSORT(IA,A,I,N) will sort the indexes in IA such that
+*             strings in array A<IA<I>,1>, A<IA<I + 1>,1>, ..., 
+*             A<IA<N>,1> are in ascending sequence using
+*	      Hoare's Quicksort.
+*
+*             (Modified from Gimple's code to do an index sort
+*              by Robert Heller)
+	DEFINE('HSORT(IA,A,I,N)J,K,CRITERION')	:(HSORT_END)
+HSORT	GT(N - I, 1)				:S(HSORT_LARGE)
+	GE(I,N)					:S(RETURN)
+	(LGT(A<IA<I>,1>, A<IA<N>,1>)  SWAP(.IA<I>, .IA<N>))	:(RETURN)
+HSORT_LARGE
+	CRITERION  =  A<IA<(I + N) / 2>,1>
+	J  =  I - 1
+	K  =  N + 1
+HSORT_UP	J  =  J + 1
+	~LGT(CRITERION, A<IA<J>,1>)			:F(HSORT_UP)
+HSORT_DOWN	K  =  K - 1
+	~LGT(A<IA<K>,1>, CRITERION)			:F(HSORT_DOWN)
+	(LT(J,K)  SWAP(.IA<J>, .IA<K>))		:S(HSORT_UP)
+	HSORT(IA,A,I,K)
+	HSORT(IA,A, K + 1, N)			:(RETURN)
+HSORT_END
+        DEFINE('SORT_INDEXES(A,N)IA,I,N')          :(SORT_INDEXES_END)
+SORT_INDEXES
+        PROTOTYPE(A) BREAK(',') . N
+        IA = ARRAY(N)
+        I = 1
+SORT_INDEXES_1
+        IA<I> = LE(I,N) I                       :F(SORT_INDEXES_SORT)
+        I = I + 1                               :(SORT_INDEXES_1)
+SORT_INDEXES_SORT
+        HSORT(IA,A,1,N)
+*        TERMINAL = '[SORT_INDEXES_SORT] HSORT returns'
+        SORT_INDEXES = IA                      :(RETURN)
+SORT_INDEXES_END    
 *
 *   SYMBOLTABLE() -- Print the Symbol Table to the LIST output
 *   Params: none
 *   Returns: nothing
 *   Side effects:  Symbol table is nicely printed to the LIST output
 *
-    DEFINE('SYMBOLTABLE()A,I,LINE')                 :(SYMBOLTABLE_END)
+    DEFINE('SYMBOLTABLE()A,I,LINE,II,INDEXES,N')            :(SYMBOLTABLE_END)
 SYMBOLTABLE
     LINECOUNT = 9999
     HEADING = '(Symbols)'
     A = CONVERT(SYMS,'ARRAY')           :F(RETURN)
-    I = 1
+    INDEXES = SORT_INDEXES(A)
+    N = PROTOTYPE(INDEXES)
+    II = 1
     LINE =
 SYMBOLTABLE_1
     GT(SIZE(LINE) + 32,132)                      :S(SYMBOLTABLE_PRINT)
+    I = INDEXES<II> LE(II,N)                     :F(SYMBOLTABLE_PRINT)
     LINE = LINE RPAD(A<I,1>,32 - 5) LPAD(BASEB(A<I,2>,16),4,'0') ' '
 +                                           :F(SYMBOLTABLE_PRINT)
-    I = I + 1                               :(SYMBOLTABLE_1)
+    II = II + 1                               :(SYMBOLTABLE_1)
 SYMBOLTABLE_PRINT
     IDENT(LINE)                             :S(RETURN)
     PRINTLINE(LINE)
