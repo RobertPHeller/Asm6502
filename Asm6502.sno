@@ -360,6 +360,8 @@ PASS1_PROCESS
 *    TERMINAL = '[PASS1_PROCESS]: "' LABEL '" -  "' OP '" -  "' REMAINDER '"'
     OP DIRECTIVES               :S($('P1_DIR_' OP))
 *    TERMINAL = '[PASS1_PROCESS]: OP DIRECTIVES failed'
+    SIZE = 0
+    IDENT(OP)                                  :S(P1_LABEL)
     SIZE = INSTRUCTION_SIZE(OP,REMAINDER ' ') :S(P1_LABEL)F(FRETURN)
 P1_DIR_END
     END = 1                     :(RETURN)
@@ -619,7 +621,11 @@ PASS2_ADDRMODE_END
                                                 :(PASS2_PROCESS_END)
 PASS2_PROCESS
 *    TERMINAL = '[PASS2_PROCESS] "' OP '" "' REMAINDER '"'
+    IDENT(OP)                   :S(P2_EMIT_ADDRESONLY)
     OP DIRECTIVES               :S($('P2_DIR_' OP))F(P2_EMIT)
+P2_EMIT_ADDRESONLY
+    CAUSE = '  '
+    PASS2_PROCESS = RPAD(LPAD(BASEB(LOC,16),4,'0'),32) '//' :(RETURN)
 P2_DIR_DEF CAUSE = '  '                     
     PASS2_PROCESS = RPAD(' ',32) '//'            :(RETURN)
 P2_DIR_ORG
@@ -865,10 +871,12 @@ ARGC_END
 *    TERMINAL = '[ARGC_END] LISTFILE = "' LISTFILE '"'
 *    TERMINAL = '[ARGC_END] PUNCHFILE = "' PUNCHFILE '"'
 * Open files
-    IDENT(SOURCEFILE,'-') INPUT(.SOURCE,5)
+    IDENT(SOURCEFILE,'-') INPUT(.SOURCE,5)          :S(SKIPOPSRC)
     DIFFER(SOURCEFILE,'-') INPUT(.SOURCE,5,,SOURCEFILE) :F(NOSOURCE)
-    IDENT(LISTFILE,'-') OUTPUT(.LIST,6)
+SKIPOPSRC
+    IDENT(LISTFILE,'-') OUTPUT(.LIST,6)             :S(SKIPOPLST)
     DIFFER(LISTFILE,'-') OUTPUT(.LIST,6,,LISTFILE) :F(NOLIST)
+SKIPOPLST
     OUTPUT(.PUNCH,9,,PUNCHFILE)                     :F(NOPUNCH)
 *
 *   PRINTLINE(LL) -- Print a line to the listfile.  Generate page headings.
@@ -960,7 +968,7 @@ CHECKSUM2
 WRITEHEXFILE
     L = LOWMEM
 WRITEHEXFILE1
-    COUNT = 0
+    COUNT = 3
     REC = LPAD(BASEB(L,16),4,'0') '00'
 WRITEHEXFILE2
     GE(COUNT,32)                        :S(WRITEHEXFILE_PRINT)
@@ -969,7 +977,7 @@ WRITEHEXFILE2
     L = L + 1
     COUNT = COUNT + 1                   :(WRITEHEXFILE2)
 WRITEHEXFILE_PRINT
-    EQ(COUNT,0)                         :S(WRITEHEXFILE3)
+    EQ(COUNT,3)                         :S(WRITEHEXFILE3)
     REC = LPAD(BASEB(COUNT,16),2,'0') REC
     PUNCH = ':' REC CHECKSUM(REC)
     LE(L,HIGHMEM) DIFFER(MEMORY<L>)      :S(WRITEHEXFILE1)
@@ -980,6 +988,7 @@ WRITEHEXFILE_END
 *   Scratch file
 -include 'bq.sno'
     TEMPFILE = bq('/usr/bin/mktemp /tmp/Asm6502XXXXXX')
+*    TEMPFILE = '/tmp/Asm6502'
 *    TERMINAL = 'TEMPFILE = "' TEMPFILE '"' 
     OUTPUT(.DISK,10,,TEMPFILE)
 *
@@ -1005,14 +1014,16 @@ PASS1
 *   If empty statement, get another
     X POS(0) (BL | '') RPOS(0) :S(PASS1)
 *   Make all uppercase
-    X = REPLACE(X,&LCASE,&UCASE)
+    X = REPLACE(X,&LCASE,&UCASE) ' '
 *    TERMINAL = '[PASS1] X = "' X '"'
 *   Get label, if any
     L = ''
     X LABEL.L =
 *    TERMINAL = '[PASS1] L = "' L '"'
 *   Peel off opcode
+    O = ''
     X OP.O =
+*    TERMINAL = '[PASS1] O = "' O '"'
 *   Process statement and loop
     PASS1_PROCESS(L,O,X ' ')        :S(PASS1)
 PASS1_ILL
@@ -1043,15 +1054,17 @@ PASS2
 *   Skip blank statements
     X POS(0) (BL | '') RPOS(0) :S(PRINTEMPTYLINE)
 *   Make all uppercase
-    X = REPLACE(X,&LCASE,&UCASE)
+    X = REPLACE(X,&LCASE,&UCASE) ' '
 *   Peel off label if any
     X LABEL.L =
 *   Peel off opcode
-    X OP.O =                                :F(ERRLINE)
+    O = ''
+    X OP.O =
     X POS(0) BL = 
 *   Process statement, jump to error handler on failure
     CAUSE = '  '
     CODEBLOCK = PASS2_PROCESS(O,X ' ')        :F(ERRLINE)
+*    TERMINAL = '[PASS2] CODEBLOCK = "' CODEBLOCK '"'
 *   Output code, with line
     CODEBLOCK BREAK('/') . CODE '//' = 
     PRINTLINE(CAUSE CODE LINE)
