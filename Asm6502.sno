@@ -7,14 +7,39 @@
 * Tue May 13 08:22:51 2025
 *
 *************************************************************
+** @copyright
+**    Copyright (C) 2025  Robert Heller D/B/A Deepwoods Software
+**			51 Locke Hill Road
+**			Wendell, MA 01379-9728
+**
+**    This program is free software; you can redistribute it and/or modify
+**    it under the terms of the GNU General Public License as published by
+**    the Free Software Foundation; either version 2 of the License, or
+**    (at your option) any later version.
+**
+**    This program is distributed in the hope that it will be useful,
+**    but WITHOUT ANY WARRANTY; without even the implied warranty of
+**    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+**    GNU General Public License for more details.
+**
+**    You should have received a copy of the GNU General Public License
+**    along with this program; if not, write to the Free Software
+**    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+** @file Asm6502.sno
+** @author Robert Heller
+** @date Tue May 13 08:22:51 2025
+** 
+** 
+**
+****************************************************************************
 *
 *    &DUMP = 1
-*   PRINT_TABLE(N,T) - Debug helper function to print table objects
-*   Params:
-*       N name of the table
-*       T the table itself
-*   Returns nothing
-*
+** @fn PRINT_TABLE(N,T)
+**   PRINT_TABLE(N,T) - Debug helper function to print table objects
+**   @param N name of the table
+**   @param T the table itself
+**   @returns nothing
+**
     DEFINE('PRINT_TABLE(N,T)TA') :(PRINT_TABLE_END)
 PRINT_TABLE 
     TA = CONVERT(T,'ARRAY')       :F(FRETURN)
@@ -23,12 +48,16 @@ PRINT_TABLE
 PRINT_TABLE_L TERMINAL = TA<I,1> ' = ' TA<I,2> :F(RETURN)
     I = I + 1                   :(PRINT_TABLE_L)
 PRINT_TABLE_END
-* BASE10 - BASE10(N,B) will convert the string N assumed
-*	   to be a numeral expressed in base B arithmetic
-*	   to decimal (base 10).
-*
-*	   Digits beyond 0-9 are from the set A-Z.
-*
+** @fn BASE10(N, B)
+** BASE10 - BASE10(N,B) will convert the string N assumed
+**	   to be a numeral expressed in base B arithmetic
+**	   to decimal (base 10).
+**
+**	   Digits beyond 0-9 are from the set A-Z.
+**
+** @param N Number string to convert
+** @param B Base N is in
+** @returns A base 10 integer
 	DEFINE('BASE10(N,B)T')
 	BASEB_ALPHA  =  '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 						:(BASE10_END)
@@ -36,10 +65,13 @@ BASE10	N   LEN(1) . T  =			:F(RETURN)
 	BASEB_ALPHA    BREAK(*T)  @T		:F(ERROR)
 	BASE10  =  (BASE10 * B) + T		:(BASE10)
 BASE10_END
-*  BASEB(N,B) will convert the integer N to its base B representation.
-*
-*  B may be any positive integer <=36.
-*
+** @fn BASEB(N,B)
+**  BASEB(N,B) will convert the integer N to its base B representation.
+**
+**  B may be any positive integer <=36.
+** @param N integer to convert
+** @param B base to convert to (must be <= 36)
+** @returns a string in base B of N.
 	DEFINE('BASEB(N,B)R,C')
 	BASEB_ALPHA  =  '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 						:(BASEB_END)
@@ -200,12 +232,12 @@ INSTRUCTIONS1
     OP.O = POS(0) (INSTRUCTIONS | DIRECTIVES) . O BL
 * Symbol table
     SYMS = TABLE()
-*
-* DUMPSUMBOLS() -- Dump the symbol table
-*
-* Params: none
-* Returns: nothing
-*
+** @fn DUMPSUMBOLS()
+** DUMPSUMBOLS() -- Dump the symbol table
+**
+**
+** @returns nothing
+**
     DEFINE('DUMPSUMBOLS()A,I')       :(DUMPSUMBOLS_END)
 DUMPSUMBOLS
     TERMINAL = "Symbols: "
@@ -222,27 +254,28 @@ DUMPSUMBOLS_END
 *
 * Pass1 instruction size check functions:
 *
-*   ZPG_CHECK(A) -- Checks to see if A is a valid Zero Page location
-*   Params:
-*   A - Address field
-*   Returns: Success is A is < 256, Failure if not
-*
+** @fn ZPG_CHECK(A)
+**   ZPG_CHECK(A) -- Checks to see if A is a valid Zero Page location
+**
+** @param   A - Address field
+** @returns Success is A is < 256, Failure if not
+**
     DEFINE('ZPG_CHECK(A)H,D')
-*
-*   IS_ADDRMODE(REMAINDER,ADDMODES) -- Returns instruction size in bytes
-*   Params:
-*   REMAINDER - operand field, with trailing blank
-*   ADDMODES  - comma separated list of valid addressing modes
-*   Returns:  - Instruction size in bytes, Failure if invalid address field
-*
+** @fn IS_ADDRMODE(REMAINDER,ADDMODES)
+**   IS_ADDRMODE(REMAINDER,ADDMODES) -- Returns instruction size in bytes
+**
+** @param   REMAINDER - operand field, with trailing blank
+** @param   ADDMODES  - comma separated list of valid addressing modes
+** @returns  - Instruction size in bytes, Failure if invalid address field
+**
     DEFINE('IS_ADDRMODE(REMAINDER,ADDMODES)MODE,A,C,D,H')
-*
-*   INSTRUCTION_SIZE(OP,REMAINDER) -- Returns Instruction size in bytes, Failure if invalid address field
-*   Params:
-*   OP - Opcode 
-*   REMAINDER operand field, with trailing blank
-*   Returns:  - Instruction size in bytes, Failure if invalid address field
-*
+** @fn INSTRUCTION_SIZE(OP,REMAINDER)
+**   INSTRUCTION_SIZE(OP,REMAINDER) -- Returns Instruction size in bytes, Failure if invalid address field
+**
+** @param   OP - Opcode 
+** @param   REMAINDER operand field, with trailing blank
+** @returns  - Instruction size in bytes, Failure if invalid address field
+**
     DEFINE('INSTRUCTION_SIZE(OP,REMAINDER)A,C,D')       :(INSTRUCTION_SIZE_END)
 ZPG_CHECK
     A DECCONST . D                              :S(ZPG_CHECK_DEC)
@@ -345,16 +378,17 @@ IS_TRBTSB
 IS_IMPL
     INSTRUCTION_SIZE = 1                      :(RETURN)
 INSTRUCTION_SIZE_END
-*
-*   PASS1_PROCESS(LABEL,OP,REMAINDER) -- Process one instruction during pass 1
-*   Params:
-*   LABEL -- label or empty
-*   OP -- Opcode
-*   REMAINDER -- rest of line with trailing blank
-*   Returns: Success if legal opcode or directive with legal address mode
-*            Failure if illegal opcode or illegal address mode
-*   Side effects: updates LOC and Symbol Table
-*
+** @fn PASS1_PROCESS(LABEL,OP,REMAINDER)
+**   PASS1_PROCESS(LABEL,OP,REMAINDER) -- Process one instruction during pass 1
+**
+** @param   LABEL -- label or empty
+** @param   OP -- Opcode
+** @param   REMAINDER -- rest of line with trailing blank
+** @returns Success if legal opcode or directive with legal address mode
+**            Failure if illegal opcode or illegal address mode
+** @par Side effects
+** Updates LOC and Symbol Table
+**
     DEFINE('PASS1_PROCESS(LABEL,OP,REMAINDER)SIZE,H,D,C')   :(PASS1_PROCESS_END)
 PASS1_PROCESS
 *    TERMINAL = '[PASS1_PROCESS]: "' LABEL '" -  "' OP '" -  "' REMAINDER '"'
@@ -397,26 +431,26 @@ P1_LABEL
 *    TERMINAL = '[PASS1_PROCESS] SYMS<"' LABEL '"> = ' SYMS<LABEL>
     LOC = LOC + SIZE               :(RETURN)
 PASS1_PROCESS_END
-*
 *   Pass 2 helper functions
 *
-*   MEMORYSTORE(L,V) -- Store a byte in 'memory'
-*   Params: 
-*   L -- location
-*   V -- Byte to store
-*   Returns: nothing
-*   Side effects: 
-*   Memory table updated
-*   LOWMEM and HIGHMEM updated to define bounds
-*
+** @fn MEMORYSTORE(L,V)
+**   MEMORYSTORE(L,V) -- Store a byte in 'memory'
+**
+**   @param L -- location
+**   @param V -- Byte to store
+**   @returns nothing
+**   @par Side effects 
+**   Memory table updated
+**   LOWMEM and HIGHMEM updated to define bounds
+**
     DEFINE('MEMORYSTORE(L,V)')
-*
-*   DUMPMEMORY() -- Hex dump compiled code
-*   Params: none
-*   Returns: nothing
-*   Side effects:
-*   Memory dumped to OUTPUT in HEX
-*
+** @fn DUMPMEMORY()
+**   DUMPMEMORY() -- Hex dump compiled code
+**
+** @returns nothing
+** @par   Side effects
+**   Memory dumped to OUTPUT in HEX
+**
     DEFINE('DUMPMEMORY()L,CLEN,CODE')
 * Memeory buffer
     MEMORY = TABLE()
@@ -449,36 +483,37 @@ DUMPMEMORY_FLUSH
 MEMORYSTORE_END
 *
 * More Pass 2 helper functions
-*
-*   PASS2_ZPG(A) - Zero page address checker
-*   Params:
-*   A Address field to check
-*   Returns:  Zero page address or 
-*             Failure if address is out of range or illformed
-*
+** @fn PASS2_ZPG(A)
+**   PASS2_ZPG(A) - Zero page address checker
+**
+** @param   A Address field to check
+** @returns  Zero page address or 
+**             Failure if address is out of range or illformed
+**
     DEFINE('PASS2_ZPG(A)H,D,S')
-*
-*   PASS2_ABS(A) - Absolute address checker
-*   Params:
-*   A Address field to check
-*   Returns:  Absolute address or 
-*             Failure if address is not defined or illformed
-*
+** @fn PASS2_ABS(A)
+**   PASS2_ABS(A) - Absolute address checker
+**
+** @param   A Address field to check
+** @returns  Absolute address or 
+**             Failure if address is not defined or illformed
+**
     DEFINE('PASS2_ABS(A)H,D,S')
-*
-*   PASS2_ADDRMODE(OP_A,OP_C,OP_B,REMAINDER,CLEN) -- 
-*   Process opcode address mode
-*   Params:
-*   OP_A -- A field code
-*   OP_C -- C field code
-*   OP_B -- B field codes (address modes)
-*   REMAINDER -- operand field with trailing blank
-*   CLEN -- Starting code length
-*   Returns: Hex Code fragment for listing with '//' for newlines or
-*            Failure for bad address
-*   Side effects: memory updated with opcode and operand bytes
-*                 on failure, CAUSE is set to error code
-*
+** @fn PASS2_ADDRMODE(OP_A,OP_C,OP_B,REMAINDER,CLEN)
+**   PASS2_ADDRMODE(OP_A,OP_C,OP_B,REMAINDER,CLEN) -- 
+**   Process opcode address mode
+**
+** @param   OP_A -- A field code
+** @param   OP_C -- C field code
+** @param   OP_B -- B field codes (address modes)
+** @param   REMAINDER -- operand field with trailing blank
+** @param   CLEN -- Starting code length
+** @returns Hex Code fragment for listing with '//' for newlines or
+**            Failure for bad address
+** @par Side effects
+**  memory updated with opcode and operand bytes
+**                 on failure, CAUSE is set to error code
+**
     DEFINE('PASS2_ADDRMODE(OP_A,OP_C,OP_B,REMAINDER,CLEN)MODE,B,H,D1,D2,C,A,OPCODE') 
                                                 :(PASS2_ADDRMODE_END)
 PASS2_ZPG
@@ -608,15 +643,15 @@ PASS2_ADDRMODE_ACC
 PASS2_ADDRMODE_ERR
     CAUSE = 'IA'                    :(FRETURN)
 PASS2_ADDRMODE_END
-*
-*   PASS2_PROCESS(OP,REMAINDER) -- main Pass 2 processing function
-*   Params:
-*   OP opcode
-*   REMAINDER operand field
-*   Returns: Hex code text, with '//' for newlines OR
-*            Failure if bad opcode, etc.
-*   Side effects: Memory buffer updated and CAUSE variable set for error code
-*
+** @fn PASS2_PROCESS(OP,REMAINDER)
+**   PASS2_PROCESS(OP,REMAINDER) -- main Pass 2 processing function
+**
+** @param   OP opcode
+** @param   REMAINDER operand field
+** @returns Hex code text, with '//' for newlines OR
+**            Failure if bad opcode, etc.
+** @par   Side effects Memory buffer updated and CAUSE variable set for error code
+**
     DEFINE('PASS2_PROCESS(OP,REMAINDER)SIZE,H,D1,D2,C,A,OPCODE,CLEN') 
                                                 :(PASS2_PROCESS_END)
 PASS2_PROCESS
@@ -850,42 +885,15 @@ P2_EMIT_IMPL
 PASS2_PROCESS_END
 *   Location counter
     LOC = 0
-*   default I/O filenames
-    SOURCEFILE = "-"
-    LISTFILE = "-"
-    PUNCHFILE = "out.hex"
-*   Process comand line options
-    OPTS.OPT = POS(0) '-' ANY('lo') . OPT
-    ARGC = HOST(3)
-ARGC1
-    HOST(2,ARGC) OPTS.OPT                     :F(ARGC_END)
-    ARGC = ARGC + 1
-    LISTFILE = IDENT(OPT,'l') HOST(2,ARGC)       :S(ARGC2)
-    PUNCHFILE = IDENT(OPT,'o') HOST(2,ARGC)       :S(ARGC2)
-ARGC2
-    ARGC = ARGC + 1                             :(ARGC1)
-ARGC_END
-* Source file
-    SOURCEFILE = HOST(2,ARGC)
-*    TERMINAL = '[ARGC_END] SOURCEFILE = "' SOURCEFILE '"'
-*    TERMINAL = '[ARGC_END] LISTFILE = "' LISTFILE '"'
-*    TERMINAL = '[ARGC_END] PUNCHFILE = "' PUNCHFILE '"'
-* Open files
-    IDENT(SOURCEFILE,'-') INPUT(.SOURCE,5)          :S(SKIPOPSRC)
-    DIFFER(SOURCEFILE,'-') INPUT(.SOURCE,5,,SOURCEFILE) :F(NOSOURCE)
-SKIPOPSRC
-    IDENT(LISTFILE,'-') OUTPUT(.LIST,6)             :S(SKIPOPLST)
-    DIFFER(LISTFILE,'-') OUTPUT(.LIST,6,,LISTFILE) :F(NOLIST)
-SKIPOPLST
-    OUTPUT(.PUNCH,9,,PUNCHFILE)                     :F(NOPUNCH)
-*
-*   PRINTLINE(LL) -- Print a line to the listfile.  Generate page headings.
-*   Params:
-*   LL The line to print
-*   Returns: nothing
-*   Side effects: sends the line to a LIST output.  Updates LINECOUNT and
-*   creates a page heading every 60 lines.
-*
+** @fn PRINTLINE(LL)
+**   PRINTLINE(LL) -- Print a line to the listfile.  Generate page headings.
+**
+** @param   LL The line to print
+** @returns nothing
+** @par Side effects
+**  sends the line to a LIST output.  Updates LINECOUNT and
+**   creates a page heading every 60 lines.
+**
     DEFINE('PRINTLINE(LL)FF')
 *   Heading subtitle
     HEADING = 
@@ -908,21 +916,13 @@ PRINTLINE1
     LIST = LL
     LINECOUNT = LINECOUNT + 1           :(RETURN)
 PRINTLINE_END
-* SWAP.inc - SWAP(.N,.M) will swap the contents of the two named
-*	     variables.
-*
-	DEFINE('SWAP(SWAP_ARG1,SWAP_ARG2)')	:(SWAP_END)
-SWAP	SWAP  =  $SWAP_ARG1
-	$SWAP_ARG1  =  $SWAP_ARG2
-	$SWAP_ARG2  =  SWAP
-	SWAP  =					:(RETURN)
-SWAP_END
-*
-*   SYMBOLTABLE() -- Print the Symbol Table to the LIST output
-*   Params: none
-*   Returns: nothing
-*   Side effects:  Symbol table is nicely printed to the LIST output
-*
+** @fn SYMBOLTABLE()
+**   SYMBOLTABLE() -- Print the Symbol Table to the LIST output
+**
+** @returns nothing
+** @par Side effects
+**   Symbol table is nicely printed to the LIST output
+**
     DEFINE('SYMBOLTABLE()LINE,I,SORTED,N')            :(SYMBOLTABLE_END)
 SYMBOLTABLE
     LINECOUNT = 9999
@@ -943,19 +943,21 @@ SYMBOLTABLE_PRINT
     PRINTLINE(LINE)
     LINE =                                  :(SYMBOLTABLE_1)
 SYMBOLTABLE_END
-*
-*   WRITEHEXFILE() -- Dump assembled memory to the PUNCH file in
-*                     HEX format
-*   Params: none
-*   Returns: nothing
-*   Side effects: assembled memory is sent to PUNCH output in HEX format
-*
+** @fn WRITEHEXFILE()
+**   WRITEHEXFILE() -- Dump assembled memory to the PUNCH file in
+**                     HEX format
+**
+** @returns nothing
+** @par Side effects
+**  assembled memory is sent to PUNCH output in HEX format
+**
     DEFINE('WRITEHEXFILE()REC,COUNT,L')
-*
-*   CHECKSUM(REC) -- Helper Function to compute the checksum
-*   Params: REC -- the bytes (in HEX)
-*   Returns: The checksum, in HEX
-*
+** @fn CHECKSUM(REC)
+**   CHECKSUM(REC) -- Helper Function to compute the checksum
+**
+** @param REC -- the bytes (in HEX)
+** @returns The checksum, in HEX
+**
     DEFINE('CHECKSUM(REC)SUM,BYTE')              :(WRITEHEXFILE_END)
 CHECKSUM
     SUM = 0
@@ -985,6 +987,72 @@ WRITEHEXFILE3
     L = LT(L,HIGHMEM) L + 1              :S(WRITEHEXFILE1)
     PUNCH = ':00000001FF'                   :(RETURN)
 WRITEHEXFILE_END
+** @mainpage Asm6502 -- 6502 assembler in SNOBOL4 
+**
+**
+** This is a @b simple 6502 assembler, written in SNOBOL4.  It works with 
+** CSNOBOL4 version 1.2 (December 9, 2008), which I built on my Raspberry Pi 5.
+**
+** It implements the base 6502 instruction set with the WDC additional
+** instructions and addressing modes, along with these "directives":
+** 
+** - Label DEF Constant    ; Set Label equal to Constant
+** - Label ORG Constant    ; Set the location counter to Constant
+** - Label WORD Constant   ; Store a 16-bit Constant here
+** - Label BYTE Constant   ; Store a 8-bit Constant here
+** - Label DATA Constant   ; Allocate Constant bytes of memory here (Zeroed)
+** - Label END             ; End  of program (required)
+** 
+** Labels start with a letter and contain only letters and digits.  Case 
+** insensitive, stored internally in uppercase.
+** 
+** Constants can be decimal, hex (with either a dollar sign or 0X prefix), or
+** single characters (using single quotes). A '*' as an address means the current
+** location.
+** 
+** Running the program:
+** 
+** snobol4 -b Asm6502.sno [-l listing] [-o hexfile] [sourcefile]
+** 
+** If -l listing is omited, listing is to stdout, of -o hexfile omited, hex code 
+** is written to out.hex, if sourcefile is omitted, code is read from stdin.
+** 
+** Print listing to default printer:
+** 
+** ./list2lp.sh listing
+** 
+** Convert listing to PDF:
+** 
+** ./list2lp.sh -o listing.ps listing && ps2pdf listing.ps listing.pdf
+** 
+*   default I/O filenames
+    SOURCEFILE = "-"
+    LISTFILE = "-"
+    PUNCHFILE = "out.hex"
+*   Process comand line options
+    OPTS.OPT = POS(0) '-' ANY('lo') . OPT
+    ARGC = HOST(3)
+ARGC1
+    HOST(2,ARGC) OPTS.OPT                     :F(ARGC_END)
+    ARGC = ARGC + 1
+    LISTFILE = IDENT(OPT,'l') HOST(2,ARGC)       :S(ARGC2)
+    PUNCHFILE = IDENT(OPT,'o') HOST(2,ARGC)       :S(ARGC2)
+ARGC2
+    ARGC = ARGC + 1                             :(ARGC1)
+ARGC_END
+* Source file
+    SOURCEFILE = HOST(2,ARGC)
+*    TERMINAL = '[ARGC_END] SOURCEFILE = "' SOURCEFILE '"'
+*    TERMINAL = '[ARGC_END] LISTFILE = "' LISTFILE '"'
+*    TERMINAL = '[ARGC_END] PUNCHFILE = "' PUNCHFILE '"'
+* Open files
+    IDENT(SOURCEFILE,'-') INPUT(.SOURCE,5)          :S(SKIPOPSRC)
+    DIFFER(SOURCEFILE,'-') INPUT(.SOURCE,5,,SOURCEFILE) :F(NOSOURCE)
+SKIPOPSRC
+    IDENT(LISTFILE,'-') OUTPUT(.LIST,6)             :S(SKIPOPLST)
+    DIFFER(LISTFILE,'-') OUTPUT(.LIST,6,,LISTFILE) :F(NOLIST)
+SKIPOPLST
+    OUTPUT(.PUNCH,9,,PUNCHFILE)                     :F(NOPUNCH)
 *   Scratch file
 -include 'bq.sno'
     TEMPFILE = bq('/usr/bin/mktemp /tmp/Asm6502XXXXXX')

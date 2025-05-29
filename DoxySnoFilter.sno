@@ -1,0 +1,31 @@
+    ARGC = HOST(3)
+    SOURCEFILE = HOST(2,ARGC)
+    DIFFER(SOURCEFILE) INPUT(.INPUT,5,,SOURCEFILE)
+    COMMENTPAT = POS(0) '**' (NOTANY('*') | RPOS(0))
+    DEFINEPAT.DEF = 'DEFINE(' ANY("'" '"') BAL . DEF ANY("'" '"') ')' 
+    DEFPAT.N.ARGS = BREAK('(') . N BAL . ARGS
+    REPLACEPAT = POS(0) '**'
+LOOP
+    LINE = INPUT                        :F(PROGRAM)
+    LINE COMMENTPAT                     :S(FILTERCOMMENT)
+    LINE DEFINEPAT.DEF                  :F(LOOP)
+*    TERMINAL = DEF
+    DEF DEFPAT.N.ARGS                   :F(LOOP)
+*    TERMINAL = 'N is "' N '"'
+*    TERMINAL = 'ARGS is "' ARGS '"'
+    OUTPUT = '       FUNCTION ' N  ARGS
+    OUTPUT = '       END FUNCTION ' N
+                                        :(LOOP)
+FILTERCOMMENT                                       
+    LINE REPLACEPAT = 'C>'
+    OUTPUT = LINE                       :(LOOP)
+PROGRAM
+    NAME = IDENT(SOURCEFILE) 'MAIN'     :S(PROGRAM1)
+    FILENAME = SOURCEFILE
+L1  FILENAME BREAK('/') '/' =           :S(L1)
+    FILENAME BREAK('.') . NAME          :S(PROGRAM1)
+    NAME = FILENAME
+PROGRAM1
+    OUTPUT = '       PROGRAM ' NAME
+    OUTPUT = '       END PROGRAM ' NAME
+END
